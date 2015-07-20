@@ -43,6 +43,10 @@
 #include <string>
 #include <vector>
 
+#include <certt.h>
+#include <pk11func.h>
+#include <nss3/ssl.h>
+
 #include "mongo/base/init.h"
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/config.h"
@@ -106,12 +110,16 @@ public:
 
     virtual void SSL_free(SSLConnection* conn);
 
+    static char * password_cb(PK11SlotInfo *slot, int retry, void *arg)
+
 private:
     std::string _password;
     bool _weakValidation;
     bool _allowInvalidCertificates;
     bool _allowInvalidHostnames;
     SSLConfiguration _sslConfiguration;
+    CERTCertDBHandle* _certHandle;
+
 };
 
 
@@ -137,6 +145,8 @@ MONGO_INITIALIZER_WITH_PREREQUISITES(SSLManager, ("SetupNSS"))
 
 std::unique_ptr<SSLManagerInterface> SSLManagerInterface::create(const SSLParams& params,
                                                                  bool isServer) {
+    PK11_SetPasswordFunc(&SSLManager::password_cb);
+    NSS_init("/certdb");
     return stdx::make_unique<NSSManager>(params, isServer);
 }
 
@@ -161,6 +171,9 @@ NSSManager::NSSManager(const SSLParams& params, bool isServer) {}
 
 int NSSManager::SSL_read(SSLConnection* conn, void* buf, int num) {
     return PR_Read(conn->impl->sslFD, buf, num);
+}
+static char * password_cb(PK11SlotInfo *slot, int retry, void *arg) {
+    return "";
 }
 
 int NSSManager::SSL_write(SSLConnection* conn, const void* buf, int num) {
@@ -198,7 +211,15 @@ SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int 
 
 std::string NSSManager::parseAndValidatePeerCertificate(const SSLConnection* conn,
                                                         const std::string& remoteHost) {
-    return "";
+    // TODO: modify the conn objects
+    // TODO: make isServer class var or sth
+    CERTCertificate *peerCert = SSL_PeerCertificate(conn);
+    SECCertUsage usage = isServer ? certUsageSSLClient : certUsageSSLServer;
+    char * certName = isServer ? "client.pem" : "server.pem";
+
+    SECStatus status = CERT_VerifyCertNow(_certHandle, peerCert, PR_TRUE, usage, &SSL_RevealPinArg(conn))
+    return CERT_GetCommonName(CERT_AsciiToName(certName));
+    //TODO: free this name
 }
 
 void NSSManager::cleanupThreadLocals() {
