@@ -166,6 +166,18 @@ using UniqueSSLContext = std::unique_ptr<SSL_CTX, decltype(&_free_ssl_context)>;
 static const int BUFFER_SIZE = 8 * 1024;
 static const int DATE_LEN = 128;
 
+class SSLConnection {
+public:
+    SSL* ssl;
+    BIO* networkBIO;
+    BIO* internalBIO;
+    Socket* socket;
+
+    SSLConnection(SSL_CTX* ctx, Socket* sock, const char* initialBytes, int len);
+
+    ~SSLConnection();
+};
+
 class SSLManager : public SSLManagerInterface {
 public:
     explicit SSLManager(const SSLParams& params, bool isServer);

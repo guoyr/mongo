@@ -39,33 +39,16 @@
 #include "mongo/util/net/sock.h"
 #include "mongo/util/time_support.h"
 
-#include <openssl/err.h>
-#include <openssl/ssl.h>
-
-#endif  // #ifdef MONGO_CONFIG_SSL
-
-namespace mongo {
-/*
- * @return the SSL version std::string prefixed with prefix and suffixed with suffix
- */
-const std::string getSSLVersion(const std::string& prefix, const std::string& suffix);
-}
-
-#ifdef MONGO_CONFIG_SSL
 namespace mongo {
 struct SSLParams;
 
+class SSLConnectionImpl;
 class SSLConnection {
 public:
-    SSL* ssl;
-    BIO* networkBIO;
-    BIO* internalBIO;
-    Socket* socket;
-
-    SSLConnection(SSL_CTX* ctx, Socket* sock, const char* initialBytes, int len);
-
     ~SSLConnection();
+    std::unique_ptr<SSLConnectionImpl> implementation;
 };
+
 
 struct SSLConfiguration {
     SSLConfiguration() : serverSubjectName(""), clientSubjectName(""), hasCA(false) {}
