@@ -37,6 +37,8 @@ env.CppUnitTest(
 #        ],
 #)
 
+env.AppendUnique(CPPPATH=["/usr/include/nspr4"])
+
 env.Library(
     target='ssl_manager',
     source=[

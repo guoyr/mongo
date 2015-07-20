@@ -29,6 +29,10 @@
 
 #include "mongo/platform/basic.h"
 
+#include <nspr4/prio.h>
+#include <nspr4/private/pprio.h> // :(
+#include <nss3/ssl.h>
+
 #include "mongo/util/net/ssl_manager.h"
 
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -62,10 +66,14 @@ SSLManagerInterface* theSSLManager = NULL;
 
 SimpleMutex sslManagerMtx;
 
-SSLConnection::~SSLConnection() {}
-
 class SSLConnectionImpl {
+public:
+    SSLConnectionImpl(PRFileDesc* sslFD) : sslFD(sslFD) {}
+    PRFileDesc* sslFD;
 };
+
+SSLConnection::SSLConnection(std::unique_ptr<SSLConnectionImpl> impl) : impl(std::move(impl)) {}
+SSLConnection::~SSLConnection() {}
 
 class NSSManager : public SSLManagerInterface {
 public:
@@ -118,7 +126,7 @@ MONGO_INITIALIZER(SetupNSS)(InitializerContext*) {
     return Status::OK();
 }
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(SSLManager, ("SetupOpenSSL"))
+MONGO_INITIALIZER_WITH_PREREQUISITES(SSLManager, ("SetupNSS"))
 (InitializerContext*) {
     stdx::lock_guard<SimpleMutex> lck(sslManagerMtx);
     if (sslGlobalParams.sslMode.load() != SSLParams::SSLMode_disabled) {
@@ -151,9 +159,13 @@ SSLManagerInterface::~SSLManagerInterface() {}
 
 NSSManager::NSSManager(const SSLParams& params, bool isServer) {}
 
-int NSSManager::SSL_read(SSLConnection* conn, void* buf, int num) { return 0;}
+int NSSManager::SSL_read(SSLConnection* conn, void* buf, int num) {
+    return PR_Read(conn->impl->sslFD, buf, num);
+}
 
-int NSSManager::SSL_write(SSLConnection* conn, const void* buf, int num) { return 0; }
+int NSSManager::SSL_write(SSLConnection* conn, const void* buf, int num) {
+    return PR_Write(conn->impl->sslFD, buf, num);
+}
 
 unsigned long NSSManager::ERR_get_error() { return 0; }
 
@@ -165,9 +177,24 @@ int NSSManager::SSL_shutdown(SSLConnection* conn) { return 0; }
 
 void NSSManager::SSL_free(SSLConnection* conn) {}
 
-SSLConnection* NSSManager::connect(Socket* socket) { return nullptr; }
+SSLConnection* NSSManager::connect(Socket* socket) {
+    PRFileDesc* prFD = PR_ImportTCPSocket(socket->rawFD());
+    PRFileDesc* sslFD = SSL_ImportFD(nullptr, prFD);
+    auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
+    auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
 
-SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int len) { return nullptr;}
+    return sslConn.release();
+}
+
+SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int len) {
+    PRFileDesc* prFD = PR_ImportTCPSocket(socket->rawFD());
+    PRFileDesc* sslFD = SSL_ImportFD(nullptr, prFD);
+    massert(ErrorCodes::BadValue, "Could not require certificate",
+            SECSuccess == SSL_OptionSet(sslFD, SSL_REQUEST_CERTIFICATE, PR_TRUE));
+    auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
+    auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
+    return sslConn.release();
+}
 
 std::string NSSManager::parseAndValidatePeerCertificate(const SSLConnection* conn,
                                                         const std::string& remoteHost) {

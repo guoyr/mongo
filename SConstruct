@@ -1277,6 +1277,8 @@ if has_option( "ssl" ):
         env.Append( LIBS=["ssl"] )
         env.Append( LIBS=["crypto"] )
         env.Append( LIBS=["nss3"] )
+        env.Append( LIBS=["ssl3"] )
+        env.Append( LIBS=["nspr4"] )
 else:
     env.Append( MONGO_CRYPTO=["tom"] )
 

@@ -45,8 +45,9 @@ struct SSLParams;
 class SSLConnectionImpl;
 class SSLConnection {
 public:
+    SSLConnection(std::unique_ptr<SSLConnectionImpl> impl);
     ~SSLConnection();
-    std::unique_ptr<SSLConnectionImpl> implementation;
+    std::unique_ptr<SSLConnectionImpl> impl;
 };
 
 
