@@ -138,6 +138,7 @@ MONGO_INITIALIZER(SetupNSS)(InitializerContext*) {
 
 MONGO_INITIALIZER_WITH_PREREQUISITES(SSLManager, ("SetupNSS"))
 (InitializerContext*) {
+    NSS_SetDomesticPolicy();
     NSS_Init("/certdb");
     if (sslGlobalParams.sslMode.load() != SSLParams::SSLMode_disabled) {
         theSSLManager = new NSSManager(sslGlobalParams, isSSLServer);
