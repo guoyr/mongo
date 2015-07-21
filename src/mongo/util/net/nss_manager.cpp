@@ -173,7 +173,7 @@ int NSSManager::SSL_read(SSLConnection* conn, void* buf, int num) {
 }
 char* NSSManager::password_cb(PK11SlotInfo *slot, int retry, void *arg) {
 
-    return NULL;
+    return nullptr;
 }
 
 int NSSManager::SSL_write(SSLConnection* conn, const void* buf, int num) {
@@ -193,6 +193,10 @@ void NSSManager::SSL_free(SSLConnection* conn) {}
 SSLConnection* NSSManager::connect(Socket* socket) {
     PRFileDesc* prFD = PR_ImportTCPSocket(socket->rawFD());
     PRFileDesc* sslFD = SSL_ImportFD(nullptr, prFD);
+
+    massert(ErrorCodes::BadValue, "couldn't get client certificate", 
+            SSL_GetClientAuthDataHook(sslFD, NSS_GetClientAuthData, (void *)"mongodbClientCert") == SECSuccess);
+    massert(ErrorCodes::BadValue, "couldn't set badCertHook", SSL_BadCertHook(sslFD, [](void *arg, PRFileDesc *fd){return SECSuccess;}, nullptr));
     auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
     auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
 
@@ -233,14 +237,12 @@ SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int 
 
 std::string NSSManager::parseAndValidatePeerCertificate(const SSLConnection* conn,
                                                         const std::string& remoteHost) {
-    // TODO: modify the conn objects
     CERTCertificate *peerCert = SSL_PeerCertificate(conn->impl->sslFD);
     SECCertUsage usage = remoteHost.empty() ? certUsageSSLClient : certUsageSSLServer;
 
     SECStatus status = CERT_VerifyCertNow(_certHandle, peerCert, PR_TRUE, usage, SSL_RevealPinArg(conn->impl->sslFD));
     uassert(49876, "certificate veritifcation failed", status == SECSuccess);
     return CERT_NameToAscii(&peerCert->subject);
-    //TODO: free this name
 }
 
 void NSSManager::cleanupThreadLocals() {
