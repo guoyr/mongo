@@ -180,10 +180,10 @@ bool MessagingPort::recv(Message& m) {
         // mmm( log() << "*  recv() sock:" << this->sock << endl; )
         MSGHEADER::Value header;
         int headerLen = sizeof(MSGHEADER::Value);
-        psock->recv((char*)&header, headerLen);
-        int len = header.constView().getMessageLength();
+        //psock->recv((char*)&header, headerLen);
+        //int len = header.constView().getMessageLength();
 
-        if (len == 542393671) {
+        /*if (len == 542393671) {
             // an http GET
             string msg =
                 "It looks like you are trying to access MongoDB over HTTP on the native driver "
@@ -197,7 +197,7 @@ bool MessagingPort::recv(Message& m) {
             return false;
         }
         // If responseTo is not 0 or -1 for first packet assume SSL
-        else if (psock->isAwaitingHandshake()) {
+        else*/ if (psock->isAwaitingHandshake()) {
 #ifndef MONGO_CONFIG_SSL
             if (header.constView().getResponseTo() != 0 &&
                 header.constView().getResponseTo() != -1) {
@@ -220,6 +220,8 @@ bool MessagingPort::recv(Message& m) {
                     sslGlobalParams.sslMode.load() != SSLParams::SSLMode_requireSSL);
 #endif  // MONGO_CONFIG_SSL
         }
+        psock->recv((char*)&header, headerLen);
+        int len = header.constView().getMessageLength();
         if (static_cast<size_t>(len) < sizeof(MSGHEADER::Value) ||
             static_cast<size_t>(len) > MaxMessageSizeBytes) {
             LOG(0) << "recv(): message len " << len << " is invalid. "
