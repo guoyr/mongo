@@ -196,7 +196,7 @@ SSLConnection* NSSManager::connect(Socket* socket) {
 
     massert(ErrorCodes::BadValue, "couldn't get client certificate", 
             SSL_GetClientAuthDataHook(sslFD, NSS_GetClientAuthData, (void *)"mongodbClientCert") == SECSuccess);
-    massert(ErrorCodes::BadValue, "couldn't set badCertHook", SSL_BadCertHook(sslFD, [](void *arg, PRFileDesc *fd){return SECSuccess;}, nullptr));
+    massert(ErrorCodes::BadValue, "couldn't set badCertHook", SECSuccess == SSL_BadCertHook(sslFD, [](void *arg, PRFileDesc *fd){return SECSuccess;}, nullptr));
     auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
     auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
 
