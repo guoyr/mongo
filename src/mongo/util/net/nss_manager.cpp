@@ -32,6 +32,8 @@
 #include <nspr4/prio.h>
 #include <nspr4/private/pprio.h> // :(
 #include <nss3/ssl.h>
+#include <nss3/key.h>
+#include <nss3/pk11func.h>
 
 #include "mongo/util/net/ssl_manager.h"
 
@@ -51,7 +53,6 @@
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/config.h"
 #include "mongo/stdx/memory.h"
-#include "mongo/util/concurrency/mutex.h"
 #include "mongo/util/exit.h"
 #include "mongo/util/debug_util.h"
 #include "mongo/util/log.h"
@@ -62,13 +63,15 @@
 
 using std::endl;
 
+using UniqueCertificate = std::unique_ptr<CERTCertificate, decltype(&CERT_DestroyCertificate)>;
+using UniqueKey = std::unique_ptr<SECKEYPrivateKey, decltype(&SECKEY_DestroyPrivateKey)>;
+using UniqueSlot = std::unique_ptr<PK11SlotInfo, decltype(&PK11_FreeSlot)>;
+
 namespace mongo {
 
 SSLParams sslGlobalParams;
 
 SSLManagerInterface* theSSLManager = NULL;
-
-SimpleMutex sslManagerMtx;
 
 class SSLConnectionImpl {
 public:
@@ -136,7 +139,6 @@ MONGO_INITIALIZER(SetupNSS)(InitializerContext*) {
 
 MONGO_INITIALIZER_WITH_PREREQUISITES(SSLManager, ("SetupNSS"))
 (InitializerContext*) {
-    stdx::lock_guard<SimpleMutex> lck(sslManagerMtx);
     if (sslGlobalParams.sslMode.load() != SSLParams::SSLMode_disabled) {
         theSSLManager = new NSSManager(sslGlobalParams, isSSLServer);
     }
@@ -151,10 +153,7 @@ std::unique_ptr<SSLManagerInterface> SSLManagerInterface::create(const SSLParams
 }
 
 SSLManagerInterface* getNSSManager() {
-    stdx::lock_guard<SimpleMutex> lck(sslManagerMtx);
-    if (theSSLManager)
-        return theSSLManager;
-    return NULL;
+    return theSSLManager;
 }
 
 BSONObj SSLConfiguration::getServerStatusBSON() const {
@@ -196,6 +195,10 @@ SSLConnection* NSSManager::connect(Socket* socket) {
     auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
     auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
 
+    SSL_ResetHandshake(sslConn->impl->sslFD, PR_FALSE);
+    SSL_SetURL(sslConn->impl->sslFD, socket->remoteString().c_str());
+    SSL_ForceHandshake(sslConn->impl->sslFD);
+
     return sslConn.release();
 }
 
@@ -206,6 +209,24 @@ SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int 
             SECSuccess == SSL_OptionSet(sslFD, SSL_REQUEST_CERTIFICATE, PR_TRUE));
     auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
     auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
+
+    UniqueCertificate cert(CERT_FindCertByNickname(nullptr, "mongodbServerCert"),
+                           &CERT_DestroyCertificate);
+    //This will traverse *one* PKCS11 slot for certs with a nick.
+    //SECStatus status = PK11_TraverseCertsForNicknameInSlot("mongodbServerCert", slot,
+
+    //TODO: allow other pkcs#11 slots
+    UniqueSlot slot(PK11_GetInternalKeySlot(), &PK11_FreeSlot);
+    UniqueKey key(PK11_FindPrivateKeyFromCert(slot.get(), cert.get(), nullptr), &SECKEY_DestroyPrivateKey);
+
+    if (SECSuccess != SSL_ConfigSecureServer(sslConn->impl->sslFD, cert.get(), key.get(), NSS_FindCertKEAType(cert.get()))) {
+        throw SocketException(SocketException::CONNECT_ERROR, "Unable to configure server with keys for TLS");
+    }
+
+    SSL_ResetHandshake(sslConn->impl->sslFD, PR_TRUE);
+    SSL_SetURL(sslConn->impl->sslFD, socket->remoteString().c_str());
+    SSL_ForceHandshake(sslConn->impl->sslFD);
+
     return sslConn.release();
 }
 
