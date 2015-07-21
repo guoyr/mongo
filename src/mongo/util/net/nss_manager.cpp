@@ -34,6 +34,7 @@
 #include <nss3/ssl.h>
 #include <nss3/key.h>
 #include <nss3/pk11func.h>
+#include <nss3/nss.h>
 
 #include "mongo/util/net/ssl_manager.h"
 
@@ -45,9 +46,7 @@
 #include <string>
 #include <vector>
 
-#include <certt.h>
-#include <pk11func.h>
-#include <nss3/ssl.h>
+#include <nss3/certt.h>
 
 #include "mongo/base/init.h"
 #include "mongo/bson/bsonobjbuilder.h"
@@ -113,7 +112,7 @@ public:
 
     virtual void SSL_free(SSLConnection* conn);
 
-    static char * password_cb(PK11SlotInfo *slot, int retry, void *arg)
+    static char * password_cb(PK11SlotInfo *slot, int retry, void *arg);
 
 private:
     std::string _password;
@@ -139,6 +138,7 @@ MONGO_INITIALIZER(SetupNSS)(InitializerContext*) {
 
 MONGO_INITIALIZER_WITH_PREREQUISITES(SSLManager, ("SetupNSS"))
 (InitializerContext*) {
+    NSS_Init("/certdb");
     if (sslGlobalParams.sslMode.load() != SSLParams::SSLMode_disabled) {
         theSSLManager = new NSSManager(sslGlobalParams, isSSLServer);
     }
@@ -147,8 +147,7 @@ MONGO_INITIALIZER_WITH_PREREQUISITES(SSLManager, ("SetupNSS"))
 
 std::unique_ptr<SSLManagerInterface> SSLManagerInterface::create(const SSLParams& params,
                                                                  bool isServer) {
-    PK11_SetPasswordFunc(&SSLManager::password_cb);
-    NSS_init("/certdb");
+    PK11_SetPasswordFunc(&NSSManager::password_cb);
     return stdx::make_unique<NSSManager>(params, isServer);
 }
 
@@ -171,8 +170,9 @@ NSSManager::NSSManager(const SSLParams& params, bool isServer) {}
 int NSSManager::SSL_read(SSLConnection* conn, void* buf, int num) {
     return PR_Read(conn->impl->sslFD, buf, num);
 }
-static char * password_cb(PK11SlotInfo *slot, int retry, void *arg) {
-    return "";
+char* NSSManager::password_cb(PK11SlotInfo *slot, int retry, void *arg) {
+
+    return NULL;
 }
 
 int NSSManager::SSL_write(SSLConnection* conn, const void* buf, int num) {
@@ -233,13 +233,12 @@ SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int 
 std::string NSSManager::parseAndValidatePeerCertificate(const SSLConnection* conn,
                                                         const std::string& remoteHost) {
     // TODO: modify the conn objects
-    // TODO: make isServer class var or sth
-    CERTCertificate *peerCert = SSL_PeerCertificate(conn);
-    SECCertUsage usage = isServer ? certUsageSSLClient : certUsageSSLServer;
-    char * certName = isServer ? "client.pem" : "server.pem";
+    CERTCertificate *peerCert = SSL_PeerCertificate(conn->impl->sslFD);
+    SECCertUsage usage = remoteHost.empty() ? certUsageSSLClient : certUsageSSLServer;
 
-    SECStatus status = CERT_VerifyCertNow(_certHandle, peerCert, PR_TRUE, usage, &SSL_RevealPinArg(conn))
-    return CERT_GetCommonName(CERT_AsciiToName(certName));
+    SECStatus status = CERT_VerifyCertNow(_certHandle, peerCert, PR_TRUE, usage, SSL_RevealPinArg(conn->impl->sslFD));
+    uassert(49876, "certificate veritifcation failed", status == SECSuccess);
+    return CERT_NameToAscii(&peerCert->subject);
     //TODO: free this name
 }
 
