@@ -169,6 +169,7 @@ SSLManagerInterface::~SSLManagerInterface() {}
 NSSManager::NSSManager(const SSLParams& params, bool isServer) {}
 
 int NSSManager::SSL_read(SSLConnection* conn, void* buf, int num) {
+    error() << "SSL_read: " << num;
     return PR_Read(conn->impl->sslFD, buf, num);
 }
 char* NSSManager::password_cb(PK11SlotInfo *slot, int retry, void *arg) {
@@ -177,6 +178,7 @@ char* NSSManager::password_cb(PK11SlotInfo *slot, int retry, void *arg) {
 }
 
 int NSSManager::SSL_write(SSLConnection* conn, const void* buf, int num) {
+    error() << "SSL_write: " << num;
     return PR_Write(conn->impl->sslFD, buf, num);
 }
 
@@ -200,9 +202,9 @@ SSLConnection* NSSManager::connect(Socket* socket) {
     auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
     auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
 
-    SSL_ResetHandshake(sslConn->impl->sslFD, PR_FALSE);
-    SSL_SetURL(sslConn->impl->sslFD, socket->remoteString().c_str());
-    SSL_ForceHandshake(sslConn->impl->sslFD);
+    massert(ErrorCodes::BadValue, "Could not reset handshake", SECSuccess == SSL_ResetHandshake(sslConn->impl->sslFD, PR_FALSE));
+    massert(ErrorCodes::BadValue, "Could not set URL", SECSuccess == SSL_SetURL(sslConn->impl->sslFD, socket->remoteString().c_str()));
+    massert(ErrorCodes::BadValue, str::stream() << "Could not force connect handshake: " << PR_GetError(), SECSuccess == SSL_ForceHandshake(sslConn->impl->sslFD));
 
     return sslConn.release();
 }
@@ -210,8 +212,8 @@ SSLConnection* NSSManager::connect(Socket* socket) {
 SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int len) {
     PRFileDesc* prFD = PR_ImportTCPSocket(socket->rawFD());
     PRFileDesc* sslFD = SSL_ImportFD(nullptr, prFD);
-    massert(ErrorCodes::BadValue, "Could not require certificate",
-            SECSuccess == SSL_OptionSet(sslFD, SSL_REQUEST_CERTIFICATE, PR_TRUE));
+//    massert(ErrorCodes::BadValue, "Could not require certificate",
+//            SECSuccess == SSL_OptionSet(sslFD, SSL_REQUEST_CERTIFICATE, PR_TRUE));
     auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
     auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
 
@@ -228,20 +230,26 @@ SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int 
         throw SocketException(SocketException::CONNECT_ERROR, "Unable to configure server with keys for TLS");
     }
 
-    SSL_ResetHandshake(sslConn->impl->sslFD, PR_TRUE);
-    SSL_SetURL(sslConn->impl->sslFD, socket->remoteString().c_str());
-    SSL_ForceHandshake(sslConn->impl->sslFD);
+    //SSL_ResetHandshake(sslConn->impl->sslFD, PR_TRUE);
+    //SSL_SetURL(sslConn->impl->sslFD, socket->remoteString().c_str());
+    //SSL_ForceHandshake(sslConn->impl->sslFD);
 
+    massert(ErrorCodes::BadValue, "Could not reset handshake", SECSuccess == SSL_ResetHandshake(sslConn->impl->sslFD, PR_TRUE));
+    massert(ErrorCodes::BadValue, "Could not set URL", SECSuccess == SSL_SetURL(sslConn->impl->sslFD, socket->remoteString().c_str()));
+    massert(ErrorCodes::BadValue, str::stream() << "Could not force accept handshake: " << PR_GetError(), SECSuccess == SSL_ForceHandshake(sslConn->impl->sslFD));
     return sslConn.release();
 }
 
 std::string NSSManager::parseAndValidatePeerCertificate(const SSLConnection* conn,
                                                         const std::string& remoteHost) {
     CERTCertificate *peerCert = SSL_PeerCertificate(conn->impl->sslFD);
+    if (!peerCert) return "";
     SECCertUsage usage = remoteHost.empty() ? certUsageSSLClient : certUsageSSLServer;
 
-    SECStatus status = CERT_VerifyCertNow(_certHandle, peerCert, PR_TRUE, usage, SSL_RevealPinArg(conn->impl->sslFD));
-    uassert(49876, "certificate veritifcation failed", status == SECSuccess);
+    SECStatus status = CERT_VerifyCertNow(_certHandle, peerCert, PR_FALSE, usage, SSL_RevealPinArg(conn->impl->sslFD));
+    if (status != SECSuccess) {
+        uassert(49876, str::stream() << "certificate veritifcation failed: " << (peerCert == NULL), status == SECSuccess);
+    }
     return CERT_NameToAscii(&peerCert->subject);
 }
 
