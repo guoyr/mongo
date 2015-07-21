@@ -188,7 +188,7 @@ char* NSSManager::ERR_error_string(unsigned long e, char* buf) { return nullptr;
 
 int NSSManager::SSL_get_error(const SSLConnection* conn, int ret) { return 0; }
 
-int NSSManager::SSL_shutdown(SSLConnection* conn) { return 0; }
+int NSSManager::SSL_shutdown(SSLConnection* conn) { return SECSuccess == PR_Close(conn->impl->sslFD); }
 
 void NSSManager::SSL_free(SSLConnection* conn) {}
 
@@ -196,8 +196,9 @@ SSLConnection* NSSManager::connect(Socket* socket) {
     PRFileDesc* prFD = PR_ImportTCPSocket(socket->rawFD());
     PRFileDesc* sslFD = SSL_ImportFD(nullptr, prFD);
 
-    massert(ErrorCodes::BadValue, "couldn't get client certificate", 
-            SSL_GetClientAuthDataHook(sslFD, NSS_GetClientAuthData, (void *)"mongodbClientCert") == SECSuccess);
+    std::string str = "mongodbClientCert";
+    massert(ErrorCodes::BadValue, "couldn't get client certificate",
+            SSL_GetClientAuthDataHook(sslFD, NSS_GetClientAuthData, (void*)(str.c_str())) == SECSuccess);
     massert(ErrorCodes::BadValue, "couldn't set badCertHook", SECSuccess == SSL_BadCertHook(sslFD, [](void *arg, PRFileDesc *fd){return SECSuccess;}, nullptr));
     auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
     auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
@@ -212,8 +213,8 @@ SSLConnection* NSSManager::connect(Socket* socket) {
 SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int len) {
     PRFileDesc* prFD = PR_ImportTCPSocket(socket->rawFD());
     PRFileDesc* sslFD = SSL_ImportFD(nullptr, prFD);
-//    massert(ErrorCodes::BadValue, "Could not require certificate",
-//            SECSuccess == SSL_OptionSet(sslFD, SSL_REQUEST_CERTIFICATE, PR_TRUE));
+    massert(ErrorCodes::BadValue, "Could not require certificate",
+            SECSuccess == SSL_OptionSet(sslFD, SSL_REQUEST_CERTIFICATE, PR_TRUE));
     auto sslConnImpl = stdx::make_unique<SSLConnectionImpl>(sslFD);
     auto sslConn = stdx::make_unique<SSLConnection>(std::move(sslConnImpl));
 
@@ -243,7 +244,7 @@ SSLConnection* NSSManager::accept(Socket* socket, const char* initialBytes, int 
 std::string NSSManager::parseAndValidatePeerCertificate(const SSLConnection* conn,
                                                         const std::string& remoteHost) {
     CERTCertificate *peerCert = SSL_PeerCertificate(conn->impl->sslFD);
-    if (!peerCert) return "";
+    massert(ErrorCodes::BadValue, "Did not get peer certificate", peerCert);
     SECCertUsage usage = remoteHost.empty() ? certUsageSSLClient : certUsageSSLServer;
 
     SECStatus status = CERT_VerifyCertNow(_certHandle, peerCert, PR_FALSE, usage, SSL_RevealPinArg(conn->impl->sslFD));

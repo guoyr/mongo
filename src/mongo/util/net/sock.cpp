@@ -777,7 +777,12 @@ int Socket::unsafe_recv(char* buf, int max) {
 int Socket::_recv(char* buf, int max) {
 #ifdef MONGO_CONFIG_SSL
     if (_sslConnection.get()) {
-        return _sslManager->SSL_read(_sslConnection.get(), buf, max);
+        int ret = _sslManager->SSL_read(_sslConnection.get(), buf, max);
+        if (ret <= 0) {
+            handleRecvError(ret, max);  // If no throw return and call _recv again
+            return 0;
+        }
+        return ret;
     }
 #endif
     int ret = ::recv(_fd, buf, max, portRecvFlags);
