@@ -31,6 +31,13 @@ functions:
         remote_file: perf/${build_variant}/${revision}/mongo-${build_id}
         bucket: mciuploads
         local_file: src/mongo
+    - command: s3.get
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        remote_file: perf/${build_variant}/${revision}/network_interface_perf_test-${build_id}
+        bucket: mciuploads
+        local_file: src/network_interface_perf_test
     - command: shell.exec
       params:
         working_dir: src
@@ -55,6 +62,25 @@ functions:
           # if we started a replset, initiate it and wait for it to become primary
           ./mongo --eval "if(db.isMaster().isreplicaset){rs.initiate(); assert.soon(function(){return db.isMaster().ismaster}, 'no primary')}"
           echo "MONGOD STARTED."
+  # parse network interface perf result and append it to perf.json
+  "preprocess network interface perf result":
+    - command: s3.get
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        remote_file: perf/${build_variant}/${revision}/preprocess_network_perf_result.py-${build_id}
+        bucket: mciuploads
+        local_file: src/preprocess_network_perf_result.py
+    - command: shell.exec
+      params:
+        working_dir: src
+        script: |
+          set -e
+          set -v
+          virtualenv ./venv
+          source ./venv/bin/activate
+          pip install argparse python-dateutil
+          python preprocess_network_perf_result.py -d network_interface_perf.log -p perf.json
   "analyze":
     - command: s3.get
       params:
@@ -125,6 +151,19 @@ functions:
         name: "perf"
         file: "src/perf/perf.json"
 
+  "run network interface perf tests":
+    - command: shell.exec
+      params:
+        working_dir: src
+        script: |
+          set -e
+          set -v
+          #  give mongod a few seconds to start up so that we can connect.
+          sleep 5
+          date --iso-8601=seconds | tee network_interface_perf.log
+          ./network_interface_perf_test | tee -a network_interface_perf.log
+          date --iso-8601=seconds | tee -a network_interface_perf.log
+
 tasks:
 - name: compile
   commands:
@@ -142,6 +181,7 @@ tasks:
           set -o verbose
           ${scons|scons} ${compile_flags|} mongo
           ${scons|scons} ${compile_flags|} mongod
+          ${scons|scons} ${compile_flags|} integration_tests
     - command: s3.put
       params:
         aws_key: ${aws_key}
@@ -162,6 +202,26 @@ tasks:
         permissions: public-read
         content_type: ${content_type|application/octet-stream}
         display_name: mongo
+    - command: s3.put
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: src/build/integration_tests/network_interface_perf_test
+        remote_file: perf/${build_variant}/${revision}/network_interface_perf_test-${build_id}
+        bucket: mciuploads
+        permissions: public-read
+        content_type: ${content_type|application/octet-stream}
+        display_name: network_interface_perf_test
+    - command: s3.put
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: src/buildscripts/preprocess_network_perf_result.py
+        remote_file: perf/${build_variant}/${revision}/preprocess_network_perf_result.py-${build_id}
+        bucket: mciuploads
+        permissions: public-read
+        content_type: ${content_type|application/octet-stream}
+        display_name: preprocess_network_perf_result.py
     - command: s3.put
       params:
         aws_key: ${aws_key}
@@ -267,6 +327,14 @@ tasks:
         excludeFilter : "none"
         threads : "1"
     - func: "analyze"
+- name: networkInterfacePerf
+  depends_on:
+  - name: compile
+  commands:
+    - func: "start server"
+    - func: "run network interface perf tests"
+    - func: "preprocess network interface perf result"
+    - func: "analyze"
 
 buildvariants:
 - name: linux-wt-standalone
@@ -291,6 +359,7 @@ buildvariants:
   - name: geo
   - name: misc
   - name: singleThreaded
+  - name: networkInterfacePerf
 
 - name: linux-mmap-standalone
   display_name: Linux MMAPv1 Standalone
