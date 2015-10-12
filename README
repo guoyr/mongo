@@ -1,5 +1,5 @@
 MongoDB README
-
+test
 Welcome to MongoDB!
 
 COMPONENTS
@@ -33,23 +33,23 @@ RUNNING
     $ ./mongod
     $
     $ # The mongo javascript shell connects to localhost and test database by default:
-    $ ./mongo 
+    $ ./mongo
     > help
 
 DRIVERS
 
-  Client drivers for most programming languages are available at mongodb.org.  Use the 
+  Client drivers for most programming languages are available at mongodb.org.  Use the
   shell ("mongo") for administrative tasks.
 
 PACKAGING
 
-  Packages are created dynamically by the package.py script located in the buildscripts directory. This will 
+  Packages are created dynamically by the package.py script located in the buildscripts directory. This will
   generate RPM and Debian packages.
 
 DOCUMENTATION
 
   http://www.mongodb.org/
- 
+
 CLOUD MANAGED MONGODB
 
   http://mms.mongodb.com/
@@ -57,7 +57,7 @@ CLOUD MANAGED MONGODB
 MAIL LISTS AND IRC
 
   http://dochub.mongodb.org/core/community
-  
+
 LEARN MONGODB
 
   http://university.mongodb.com/
