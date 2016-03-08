@@ -42,6 +42,7 @@ namespace mongo {
 class BSONObjBuilder;
 class BucketDeletionNotification;
 class SortedDataBuilderInterface;
+struct ValidateResults;
 
 /**
  * This interface is a work in progress.  Notes below:
@@ -133,8 +134,8 @@ public:
      */
     virtual void fullValidate(OperationContext* txn,
                               bool full,
-                              long long* numKeysOut,
-                              BSONObjBuilder* output) const = 0;
+                              int64_t* numKeysOut,
+                              ValidateResults* fullResult) const = 0;
 
     virtual bool appendCustomStats(OperationContext* txn,
                                    BSONObjBuilder* output,
@@ -174,10 +175,10 @@ public:
      * The default implementation should be overridden with a more
      * efficient one if at all possible.
      */
-    virtual long long numEntries(OperationContext* txn) const {
-        long long x = -1;
-        fullValidate(txn, false, &x, NULL);
-        return x;
+    virtual int64_t numEntries(OperationContext* txn) const {
+        int64_t num = -1;
+        fullValidate(txn, false, &num, NULL);
+        return num;
     }
 
     /**

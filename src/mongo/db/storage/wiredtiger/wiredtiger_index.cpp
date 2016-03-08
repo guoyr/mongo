@@ -264,40 +264,28 @@ void WiredTigerIndex::unindex(OperationContext* txn,
 
 void WiredTigerIndex::fullValidate(OperationContext* txn,
                                    bool full,
-                                   long long* numKeysOut,
-                                   BSONObjBuilder* output) const {
-    if (!WiredTigerRecoveryUnit::get(txn)->getSessionCache()->isEphemeral()) {
-        std::vector<std::string> errors;
-        int err = WiredTigerUtil::verifyTable(txn, _uri, output ? &errors : NULL);
+                                   int64_t* numKeysOut,
+                                   ValidateResults* fullResult) const {
+    if (fullResult && !WiredTigerRecoveryUnit::get(txn)->getSessionCache()->isEphemeral()) {
+        int err = WiredTigerUtil::verifyTable(txn, _uri, fullResult ? &(fullResult->errors) : NULL);
         if (err == EBUSY) {
             const char* msg = "verify() returned EBUSY. Not treating as invalid.";
             warning() << msg;
-            if (output) {
-                if (!errors.empty()) {
-                    *output << "errors" << errors;
-                }
-                *output << "warning" << msg;
-            }
+            fullResult->warnings.push_back(msg);
         } else if (err) {
             std::string msg = str::stream() << "verify() returned " << wiredtiger_strerror(err)
                                             << ". "
                                             << "This indicates structural damage. "
                                             << "Not examining individual index entries.";
             error() << msg;
-            if (output) {
-                errors.push_back(msg);
-                *output << "errors" << errors;
-                *output << "valid" << false;
-            }
+            fullResult->errors.push_back(msg);
+            fullResult->valid = false;
             return;
         }
     }
 
-    if (output)
-        *output << "valid" << true;
-
     auto cursor = newCursor(txn);
-    long long count = 0;
+    int64_t count = 0;
     TRACE_INDEX << " fullValidate";
 
     const auto requestedInfo = TRACING_ENABLED ? Cursor::kKeyAndLoc : Cursor::kJustExistance;
@@ -305,17 +293,9 @@ void WiredTigerIndex::fullValidate(OperationContext* txn,
         TRACE_INDEX << "\t" << kv->key << ' ' << kv->loc;
         count++;
     }
-
     if (numKeysOut) {
         *numKeysOut = count;
     }
-
-    // Nothing further to do if 'full' validation is not requested.
-    if (!full) {
-        return;
-    }
-
-    invariant(output);
 }
 
 bool WiredTigerIndex::appendCustomStats(OperationContext* txn,

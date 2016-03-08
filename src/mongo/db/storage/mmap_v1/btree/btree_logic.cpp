@@ -2014,21 +2014,21 @@ Status BtreeLogic<BtreeLayout>::touch(OperationContext* txn) const {
 }
 
 template <class BtreeLayout>
-long long BtreeLogic<BtreeLayout>::fullValidate(OperationContext* txn,
-                                                long long* unusedCount,
-                                                bool strict,
-                                                bool dumpBuckets,
-                                                unsigned depth) const {
+int64_t BtreeLogic<BtreeLayout>::fullValidate(OperationContext* txn,
+                                              int64_t* unusedCount,
+                                              bool strict,
+                                              bool dumpBuckets,
+                                              unsigned depth) const {
     return _fullValidate(txn, getRootLoc(txn), unusedCount, strict, dumpBuckets, depth);
 }
 
 template <class BtreeLayout>
-long long BtreeLogic<BtreeLayout>::_fullValidate(OperationContext* txn,
-                                                 const DiskLoc bucketLoc,
-                                                 long long* unusedCount,
-                                                 bool strict,
-                                                 bool dumpBuckets,
-                                                 unsigned depth) const {
+int64_t BtreeLogic<BtreeLayout>::_fullValidate(OperationContext* txn,
+                                               const DiskLoc bucketLoc,
+                                               int64_t* unusedCount,
+                                               bool strict,
+                                               bool dumpBuckets,
+                                               unsigned depth) const {
     BucketType* bucket = getBucket(txn, bucketLoc);
     assertValid(_indexName, bucket, _ordering, true);
 
@@ -2037,7 +2037,7 @@ long long BtreeLogic<BtreeLayout>::_fullValidate(OperationContext* txn,
         dumpBucket(bucket, depth);
     }
 
-    long long keyCount = 0;
+    int64_t keyCount = 0;
 
     for (int i = 0; i < bucket->n; i++) {
         KeyHeaderType& kn = getKeyHeader(bucket, i);

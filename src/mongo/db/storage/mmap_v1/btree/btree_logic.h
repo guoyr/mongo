@@ -170,11 +170,11 @@ public:
 
     bool isEmpty(OperationContext* txn) const;
 
-    long long fullValidate(OperationContext*,
-                           long long* unusedCount,
-                           bool strict,
-                           bool dumpBuckets,
-                           unsigned depth) const;
+    int64_t fullValidate(OperationContext*,
+                         int64_t* unusedCount,
+                         bool strict,
+                         bool dumpBuckets,
+                         unsigned depth) const;
 
     DiskLoc getDiskLoc(OperationContext* txn, const DiskLoc& bucketLoc, const int keyOffset) const;
 
@@ -405,12 +405,12 @@ private:
                     const DiskLoc& recordLoc,
                     const int direction) const;
 
-    long long _fullValidate(OperationContext* txn,
-                            const DiskLoc bucketLoc,
-                            long long* unusedCount,
-                            bool strict,
-                            bool dumpBuckets,
-                            unsigned depth) const;
+    int64_t _fullValidate(OperationContext* txn,
+                          const DiskLoc bucketLoc,
+                          int64_t* unusedCount,
+                          bool strict,
+                          bool dumpBuckets,
+                          unsigned depth) const;
 
     DiskLoc _addBucket(OperationContext* txn);
 

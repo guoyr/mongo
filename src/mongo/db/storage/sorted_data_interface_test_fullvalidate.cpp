@@ -66,7 +66,7 @@ TEST(SortedDataInterface, FullValidate) {
     }
 
     {
-        long long numKeysOut;
+        int64_t numKeysOut;
         const std::unique_ptr<OperationContext> opCtx(harnessHelper->newOperationContext());
         sorted->fullValidate(opCtx.get(), false, &numKeysOut, NULL);
         // fullValidate() can set numKeysOut as the number of existing keys or -1.
