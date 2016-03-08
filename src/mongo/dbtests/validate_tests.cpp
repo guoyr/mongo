@@ -75,7 +75,6 @@ protected:
 
         if (_full) {
             BSONObj outputObj = output.done();
-
             bool allIndexesValid = true;
             for (auto elem : outputObj["indexDetails"].Obj()) {
                 BSONObj indexDetail(elem.value());
@@ -119,7 +118,7 @@ public:
         RecordStore* rs = coll->getRecordStore();
 
         // Remove a { _id: 1 } from the record store, so we get more _id entries than records, and
-        // verify validate fails.
+        // verify validate fails when "full" is specified.
         {
             WriteUnitOfWork wunit(&_txn);
             rs->deleteRecord(&_txn, id1);
@@ -163,12 +162,12 @@ public:
             wunit.commit();
         }
 
-        dbtests::createIndex(&_txn,
-                             coll->ns().ns(),
-                             BSON("name"
-                                  << "a"
-                                  << "ns" << coll->ns().ns() << "key" << BSON("a" << 1)
-                                  << "background" << false));
+        dbtests::createIndexFromSpec(&_txn,
+                                     coll->ns().ns(),
+                                     BSON("name"
+                                          << "a"
+                                          << "ns" << coll->ns().ns() << "key" << BSON("a" << 1)
+                                          << "background" << false));
 
         ASSERT_TRUE(checkValid());
 
@@ -199,6 +198,340 @@ public:
     }
 };
 
+class ValidateSecondaryIndex : public ValidateBase {
+public:
+    ValidateSecondaryIndex() : ValidateBase(true) {}
+    void run() {
+        // Create a new collection, insert two documents.
+        Database* db = _ctx.db();
+        Collection* coll;
+        RecordId id1;
+        {
+            WriteUnitOfWork wunit(&_txn);
+            ASSERT_OK(db->dropCollection(&_txn, _ns));
+            coll = db->createCollection(&_txn, _ns);
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 1 << "a" << 1), true));
+            id1 = coll->getCursor(&_txn)->next()->id;
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 2 << "a" << 2), true));
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 3 << "b" << 3), true));
+            wunit.commit();
+        }
+
+        dbtests::createIndexFromSpec(&_txn,
+                                     coll->ns().ns(),
+                                     BSON("name"
+                                          << "a"
+                                          << "ns" << coll->ns().ns() << "key" << BSON("a" << 1)
+                                          << "background" << false));
+
+        ASSERT_TRUE(checkValid());
+
+        RecordStore* rs = coll->getRecordStore();
+
+        {
+            WriteUnitOfWork wunit(&_txn);
+            auto doc = BSON("_id" << 1 << "a" << 9);
+            auto statusW = rs->updateRecord(
+                &_txn, id1, doc.objdata(), doc.objsize(), /*enforceQuota*/ false, NULL);
+            ASSERT_OK(statusW.getStatus());
+            // Assert the RecordId has not changed after an in-place update.
+            ASSERT_EQ(id1, statusW.getValue());
+            wunit.commit();
+        }
+
+        ASSERT_FALSE(checkValid());
+    }
+};
+
+class ValidateIdIndex : public ValidateBase {
+public:
+    ValidateIdIndex() : ValidateBase(true) {}
+
+    void run() {
+        // Create a new collection, insert records { _id: 1 } and {_id: 2} and check it's valid.
+        Database* db = _ctx.db();
+        Collection* coll;
+        RecordId id1;
+        {
+            WriteUnitOfWork wunit(&_txn);
+            ASSERT_OK(db->dropCollection(&_txn, _ns));
+            coll = db->createCollection(&_txn, _ns);
+
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 1), true));
+            id1 = coll->getCursor(&_txn)->next()->id;
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 2), true));
+            wunit.commit();
+        }
+
+        ASSERT_TRUE(checkValid());
+
+        RecordStore* rs = coll->getRecordStore();
+
+        // Update a {_id: 1} to {_id: 9} without updating the index, so we get inconsistent values
+        // between the index and the document,
+        // verify validate fails.
+        {
+            WriteUnitOfWork wunit(&_txn);
+            auto doc = BSON("_id" << 9);
+            auto statusW = rs->updateRecord(
+                &_txn, id1, doc.objdata(), doc.objsize(), /*enforceQuota*/ false, NULL);
+            ASSERT_OK(statusW.getStatus());
+            // Assert the RecordId has not changed after an in-place update.
+            ASSERT_EQ(id1, statusW.getValue());
+            wunit.commit();
+        }
+
+        ASSERT_FALSE(checkValid());
+
+        // Sanity check: revert the {_id: 9} document to the previous state where {_id: 1} and
+        // verify validate succeeds.
+        {
+            WriteUnitOfWork wunit(&_txn);
+            auto doc = BSON("_id" << 1);
+            auto statusW = rs->updateRecord(
+                &_txn, id1, doc.objdata(), doc.objsize(), /*enforceQuota*/ false, NULL);
+            ASSERT_OK(statusW.getStatus());
+            id1 = statusW.getValue();
+            wunit.commit();
+        }
+
+        ASSERT_TRUE(checkValid());
+
+        // Remove the {_id: 1} document and insert a new document without an index entry, so there
+        // will still be the same number of index entries and documents, but one document will not
+        // have an index entry.
+        {
+            WriteUnitOfWork wunit(&_txn);
+            rs->deleteRecord(&_txn, id1);
+            auto doc = BSON("_id" << 3);
+            ASSERT_OK(rs->insertRecord(&_txn, doc.objdata(), doc.objsize(), /*enforceQuota*/ false)
+                          .getStatus());
+            wunit.commit();
+        }
+
+        ASSERT_FALSE(checkValid());
+    }
+};
+
+class ValidateMultiKeyIndex : public ValidateBase {
+public:
+    ValidateMultiKeyIndex() : ValidateBase(true) {}
+
+    void run() {
+        // Create a new collection, insert records { _id: 1 } and {_id: 2} and check it's valid.
+        Database* db = _ctx.db();
+        Collection* coll;
+        RecordId id1;
+        // {a: [b: 1, c: 2]}
+        auto doc1 = BSON("_id" << 1 << "a" << BSON_ARRAY(BSON("b" << 1) << BSON("c" << 2)));
+        auto doc1_b = BSON("_id" << 1 << "a" << BSON_ARRAY(BSON("b" << 2) << BSON("c" << 2)));
+        auto doc1_c = BSON("_id" << 1 << "a" << BSON_ARRAY(BSON("b" << 1) << BSON("c" << 1)));
+
+        // {a: [b: 2]}
+        auto doc2 = BSON("_id" << 2 << "a" << BSON_ARRAY(BSON("b" << 2)));
+        // {a: [c: 1]}
+        auto doc3 = BSON("_id" << 3 << "a" << BSON_ARRAY(BSON("c" << 1)));
+        {
+            WriteUnitOfWork wunit(&_txn);
+            ASSERT_OK(db->dropCollection(&_txn, _ns));
+            coll = db->createCollection(&_txn, _ns);
+
+
+            ASSERT_OK(coll->insertDocument(&_txn, doc1, true));
+            id1 = coll->getCursor(&_txn)->next()->id;
+            ASSERT_OK(coll->insertDocument(&_txn, doc2, true));
+            ASSERT_OK(coll->insertDocument(&_txn, doc3, true));
+            wunit.commit();
+        }
+
+        ASSERT_TRUE(checkValid());
+
+        // Create multi-key index.
+        dbtests::createIndexFromSpec(&_txn,
+                                     coll->ns().ns(),
+                                     BSON("name"
+                                          << "multikey_index"
+                                          << "ns" << coll->ns().ns() << "key" << BSON("a.b" << 1)
+                                          << "background" << false));
+
+        ASSERT_TRUE(checkValid());
+
+        RecordStore* rs = coll->getRecordStore();
+
+        // Update a document's indexed field without updating the index.
+        {
+            WriteUnitOfWork wunit(&_txn);
+            auto statusW = rs->updateRecord(
+                &_txn, id1, doc1_b.objdata(), doc1_b.objsize(), /*enforceQuota*/ false, NULL);
+            ASSERT_OK(statusW.getStatus());
+            id1 = statusW.getValue();
+            wunit.commit();
+        }
+
+        ASSERT_FALSE(checkValid());
+
+        // Update a document's non-indexed field without updating the index.
+        // Index validation should still be valid.
+        {
+            WriteUnitOfWork wunit(&_txn);
+            auto statusW = rs->updateRecord(
+                &_txn, id1, doc1_c.objdata(), doc1_c.objsize(), /*enforceQuota*/ false, NULL);
+            ASSERT_OK(statusW.getStatus());
+            wunit.commit();
+        }
+
+        ASSERT_TRUE(checkValid());
+    }
+};
+
+class ValidateSparseIndex : public ValidateBase {
+public:
+    ValidateSparseIndex() : ValidateBase(true) {}
+
+    void run() {
+        // Create a new collection, insert records { _id: 1 } and {_id: 2} and check it's valid.
+        Database* db = _ctx.db();
+        Collection* coll;
+        RecordId id1;
+        {
+            WriteUnitOfWork wunit(&_txn);
+            ASSERT_OK(db->dropCollection(&_txn, _ns));
+            coll = db->createCollection(&_txn, _ns);
+
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 1 << "a" << 1), true));
+            id1 = coll->getCursor(&_txn)->next()->id;
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 2 << "a" << 2), true));
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 3 << "b" << 1), true));
+            wunit.commit();
+        }
+
+        // Create sparse index.
+        dbtests::createIndexFromSpec(&_txn,
+                                     coll->ns().ns(),
+                                     BSON("name"
+                                          << "sparse_index"
+                                          << "ns" << coll->ns().ns() << "key" << BSON("a" << 1)
+                                          << "background" << false << "sparse" << true));
+
+        ASSERT_TRUE(checkValid());
+
+        RecordStore* rs = coll->getRecordStore();
+
+        // Update a document's indexed field without updating the index.
+        {
+            WriteUnitOfWork wunit(&_txn);
+            auto doc = BSON("_id" << 2 << "a" << 3);
+            auto statusW = rs->updateRecord(
+                &_txn, id1, doc.objdata(), doc.objsize(), /*enforceQuota*/ false, NULL);
+            ASSERT_OK(statusW.getStatus());
+            wunit.commit();
+        }
+
+        ASSERT_FALSE(checkValid());
+    }
+};
+
+class ValidatePartialIndex : public ValidateBase {
+public:
+    ValidatePartialIndex() : ValidateBase(true) {}
+
+    void run() {
+        // Create a new collection, insert records { _id: 1 } and {_id: 2} and check it's valid.
+        Database* db = _ctx.db();
+        Collection* coll;
+        RecordId id1;
+        {
+            WriteUnitOfWork wunit(&_txn);
+            ASSERT_OK(db->dropCollection(&_txn, _ns));
+            coll = db->createCollection(&_txn, _ns);
+
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 1 << "a" << 1), true));
+            id1 = coll->getCursor(&_txn)->next()->id;
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 2 << "a" << 2), true));
+            wunit.commit();
+        }
+
+        // Create sparse index.
+        dbtests::createIndexFromSpec(&_txn,
+                                     coll->ns().ns(),
+                                     BSON("name"
+                                          << "sparse_index"
+                                          << "ns" << coll->ns().ns() << "key" << BSON("a" << 1)
+                                          << "background" << false << "partialFilterExpression" << BSON("a" << BSON("$gt" << 1))));
+
+        ASSERT_TRUE(checkValid());
+
+        RecordStore* rs = coll->getRecordStore();
+
+        // Update an unindexed document without updating the index.
+        {
+            WriteUnitOfWork wunit(&_txn);
+            auto doc = BSON("_id" << 1);
+            auto statusW = rs->updateRecord(
+                &_txn, id1, doc.objdata(), doc.objsize(), /*enforceQuota*/ false, NULL);
+            ASSERT_OK(statusW.getStatus());
+            wunit.commit();
+        }
+
+        ASSERT_TRUE(checkValid());
+    }
+};
+
+class ValidateCompoundIndex : public ValidateBase {
+public:
+    ValidateCompoundIndex() : ValidateBase(true) {}
+
+    void run() {
+        // Create a new collection, insert records { _id: 1 } and {_id: 2} and check it's valid.
+        Database* db = _ctx.db();
+        Collection* coll;
+        RecordId id1;
+        {
+            WriteUnitOfWork wunit(&_txn);
+            ASSERT_OK(db->dropCollection(&_txn, _ns));
+            coll = db->createCollection(&_txn, _ns);
+
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 1 << "a" << 1 << "b" << 4), true));
+            id1 = coll->getCursor(&_txn)->next()->id;
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 2 << "a" << 2 << "b" << 5), true));
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 3 << "a" << 3), true));
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 4 << "b" << 6), true));
+            ASSERT_OK(coll->insertDocument(&_txn, BSON("_id" << 5 << "c" << 7), true));
+            wunit.commit();
+        }
+
+        // Create sparse index.
+        dbtests::createIndexFromSpec(&_txn,
+                                     coll->ns().ns(),
+                                     BSON("name"
+                                          << "compound_index"
+                                          << "ns" << coll->ns().ns() << "key"
+                                          << BSON("a" << 1 << "b" << -1) << "background" << false));
+        dbtests::createIndexFromSpec(&_txn,
+                                     coll->ns().ns(),
+                                     BSON("name"
+                                          << "compound_index"
+                                          << "ns" << coll->ns().ns() << "key"
+                                          << BSON("a" << -1 << "b" << -1) << "background"
+                                          << false));
+        ASSERT_TRUE(checkValid());
+
+        RecordStore* rs = coll->getRecordStore();
+
+        // Update a document's indexed field without updating the index.
+        {
+            WriteUnitOfWork wunit(&_txn);
+            auto doc = BSON("_id" << 1 << "a" << 1 << "b" << 3);
+            auto statusW = rs->updateRecord(
+                &_txn, id1, doc.objdata(), doc.objsize(), /*enforceQuota*/ false, NULL);
+            ASSERT_OK(statusW.getStatus());
+            wunit.commit();
+        }
+
+        ASSERT_FALSE(checkValid());
+    }
+};
+
 class ValidateTests : public Suite {
 public:
     ValidateTests() : Suite("validate_tests") {}
@@ -209,6 +542,12 @@ public:
         add<ValidateIdIndexCount<false>>();
         add<ValidateSecondaryIndexCount<true>>();
         add<ValidateSecondaryIndexCount<false>>();
+        add<ValidateIdIndex>();
+        add<ValidateSecondaryIndex>();
+        add<ValidateMultiKeyIndex>();
+        add<ValidateSparseIndex>();
+        add<ValidateCompoundIndex>();
+        add<ValidatePartialIndex>();
     }
 } validateTests;
 }  // namespace ValidateTests
