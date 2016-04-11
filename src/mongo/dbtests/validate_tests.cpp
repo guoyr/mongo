@@ -310,6 +310,8 @@ public:
     }
 };
 
+// TODO: test non-multikey index with multikey
+
 class ValidateMultiKeyIndex : public ValidateBase {
 public:
     ValidateMultiKeyIndex() : ValidateBase(true) {}

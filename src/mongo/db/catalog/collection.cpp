@@ -964,10 +964,14 @@ public:
                          IndexCatalog& indexCatalog,
                          ValidateResultsMap& indexDetailNsResultsMap,
                          ValidateResults* globalResults) {
-        auto documentCursor = rs->getCursor(txn, true);
+        if (!indexCatalog.haveAnyIndexes()) {
+            return;
+        }
+
         // Only used to determine if any index validation failed in this function,
         // doesn't include any indexes that have already been marked as invalid.
         bool allIndexesValid = true;
+        auto documentCursor = rs->getCursor(txn, true);
 
         if (_full) {
             while (auto document = documentCursor->next()) {
@@ -978,8 +982,9 @@ public:
                 while (i.more()) {
                     const IndexDescriptor* descriptor = i.next();
                     IndexAccessMethod* iam = indexCatalog.getIndex(descriptor);
-                    string indexNs = descriptor->indexNamespace();
                     invariant(iam);
+
+                    string indexNs = descriptor->indexNamespace();
 
                     ValidateResults& results = indexDetailNsResultsMap[indexNs];
                     if (!results.valid) {
@@ -991,6 +996,7 @@ public:
 
                     if (documentKeySet.size() > 1) {
                         if (!descriptor->isMultikey(txn)) {
+                            // TODO test this
                             string msg = str::stream()
                                 << "Index " << descriptor->indexName()
                                 << " is not multi-key but has more than one"
@@ -1021,15 +1027,18 @@ public:
                             // still returned.
                             continue;
                         } else {
+                            string msg = str::stream() << "key (" << key << ") is not in index (" << indexNs << ")";
+                            results.errors.push_back(msg);
                             allIndexesValid = false;
                             results.valid = false;
                         }
                     }
-                }
-            }
+                } // TODO: test no indexes
+            } // TODO: test no documents
 
             if (!_ikc->empty()) {
                 allIndexesValid = false;
+                //TODO: dassert indexMap is not empty
                 for (auto& it : indexDetailNsResultsMap) {
                     // Marking all indexes as invalid since we don't know which one failed.
                     ValidateResults& r = it.second;
@@ -1088,6 +1097,7 @@ private:
         }
 
         if (results->valid && !idx->isMultikey(txn) && totalKeys > numRecs) {
+            // TODO: cover this line?
             string err = str::stream()
                 << "index " << idx->indexName() << " is not multi-key, but has more entries ("
                 << numIndexedKeys << ") than documents in the index (" << numRecs - numLongKeys
@@ -1105,8 +1115,11 @@ private:
                                        << numIndexedKeys << ") than documents in the index ("
                                        << numRecs - numLongKeys << ")";
             if (!failIndexKeyTooLong && !_full) {
+                // TODO: cover this case in index_bigkey_validation.js
                 results->warnings.push_back(msg);
             } else {
+                // TODO: cover this case, non-full validation in jstest
+                results->errors.push_back(msg);
                 results->errors.push_back(msg);
                 results->valid = false;
             }
@@ -1164,6 +1177,7 @@ Status Collection::validate(OperationContext* txn,
 
                 ValidateResults curIndexResults;
                 int64_t numKeys;
+                // TODO: check status of iam->validate
                 iam->validate(txn, full, &numKeys, &curIndexResults);
                 keysPerIndex.appendNumber(descriptor->indexNamespace(),
                                           static_cast<long long>(numKeys));
@@ -1192,7 +1206,7 @@ Status Collection::validate(OperationContext* txn,
                     }
 
                     if (!vr.errors.empty()) {
-                        bob.append("errors", vr.errors);
+                        bob.append("errors", vr.errors); // TODO: cover this
                     }
                 }
 
@@ -1211,7 +1225,8 @@ Status Collection::validate(OperationContext* txn,
                 output->append("indexDetails", indexDetails->done());
             }
         } catch (DBException& e) {
-            string err = str::stream() << "exception during index validate idxn "
+            // TODO: change index number
+            string err = str::stream() << "exception during index validate index number "
                                        << BSONObjBuilder::numStr(idxn) << ": " << e.toString();
             results->errors.push_back(err);
             results->valid = false;

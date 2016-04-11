@@ -38,6 +38,7 @@
 #include "mongo/db/operation_context_impl.h"
 #include "mongo/db/query/internal_plans.h"
 #include "mongo/util/log.h"
+#include "mongo/util/net/message.h"
 
 namespace mongo {
 
@@ -110,6 +111,8 @@ public:
         }
 
         result.appendBool("valid", results.valid);
+
+        BSONObjBuilder warningsBuilder();
         result.append("warnings", results.warnings);
         result.append("errors", results.errors);
 
