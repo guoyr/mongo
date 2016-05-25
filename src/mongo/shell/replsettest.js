@@ -850,8 +850,12 @@ var ReplSetTest = function(opts) {
         this.getPrimary();
         var res = {};
         res.master = this.liveNodes.master.getDB(db).runCommand("dbhash");
-        res.slaves = this.liveNodes.slaves.map(function(z) {
-            return z.getDB(db).runCommand("dbhash");
+        res.slaves = [];
+        this.liveNodes.slaves.forEach(function(z) {
+            var isArbiter = z.getDB('admin').isMaster('admin')['arbiterOnly'];
+            if (!isArbiter) {
+                res.slaves.push(z.getDB(db).runCommand("dbhash"));
+            }
         });
         return res;
     };
