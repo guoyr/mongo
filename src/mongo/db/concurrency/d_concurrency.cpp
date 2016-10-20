@@ -152,6 +152,16 @@ Lock::CollectionLock::~CollectionLock() {
     _lockState->unlock(_id);
 }
 
+void Lock::CollectionLock::relockWithMode(LockMode newMode) {
+    // 2PL would delay the unlocking
+    invariant(!_lockState->inAWriteUnitOfWork());
+
+    _lockState->unlock(_id);
+
+    // TODO: Currently assumes support for doc level locking.
+    invariant(LOCK_OK == _lockState->lock(_id, newMode));
+}
+
 void Lock::CollectionLock::relockAsDatabaseExclusive(Lock::DBLock& dbLock) {
     _lockState->unlock(_id);
 

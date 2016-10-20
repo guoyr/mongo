@@ -42,6 +42,7 @@
 #include "mongo/db/catalog/collection_info_cache.h"
 #include "mongo/db/catalog/cursor_manager.h"
 #include "mongo/db/catalog/index_catalog.h"
+#include "mongo/db/concurrency/d_concurrency.h"
 #include "mongo/db/exec/collection_scan_common.h"
 #include "mongo/db/namespace_string.h"
 #include "mongo/db/op_observer.h"
@@ -101,6 +102,15 @@ struct CompactStats {
 
     long long corruptDocuments;
 };
+
+
+enum IndexOperationType : int {
+    kIndexOperationTypeInsert = 0x01,
+    kIndexOperationTypeRemove = 0x02
+};
+
+// operation type, key, record id, index namespace
+using IndexOperation = std::tuple<IndexOperationType, BSONObj, RecordId, std::string>;
 
 /**
  * Queries with the awaitData option use this notifier object to wait for more data to be
@@ -361,7 +371,8 @@ public:
     Status validate(OperationContext* txn,
                     ValidateCmdLevel level,
                     ValidateResults* results,
-                    BSONObjBuilder* output);
+                    BSONObjBuilder* output,
+                    Lock::CollectionLock* collLk);
 
     /**
      * forces data into cache
@@ -456,6 +467,24 @@ public:
      */
     const CollatorInterface* getDefaultCollator() const;
 
+    class ValidateObserver {
+
+    public:
+        // ValidateObserver();
+
+        void logInsert(BSONObj key, RecordId recordId, std::string ns);
+        void logRemove(BSONObj key, RecordId recordId, std::string ns);
+        const std::vector<IndexOperation>& getIndexOperations() const;
+
+    private:
+        std::vector<IndexOperation> _indexOperations;
+    };
+
+
+    ValidateObserver* getValidateObserver() const {
+        return _validateObserver.get();
+    }
+
 private:
     /**
      * Returns a non-ok Status if document does not pass this collection's validator.
@@ -503,6 +532,10 @@ private:
     const bool _needCappedLock;
     CollectionInfoCache _infoCache;
     IndexCatalog _indexCatalog;
+
+    // Observe all operations on the collection when doing background validation.
+    // Is empty if there's no validation in progress.
+    std::unique_ptr<ValidateObserver> _validateObserver;
 
     // The default collation which is applied to operations and indices which have no collation of
     // their own. The collection's validator will respect this collation.

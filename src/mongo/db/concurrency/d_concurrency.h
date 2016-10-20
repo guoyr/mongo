@@ -298,6 +298,8 @@ public:
          */
         void relockAsDatabaseExclusive(Lock::DBLock& dbLock);
 
+        void relockWithMode(LockMode newMode);
+
     private:
         const ResourceId _id;
         Locker* const _lockState;

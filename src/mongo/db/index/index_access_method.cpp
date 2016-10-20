@@ -37,6 +37,7 @@
 
 #include "mongo/base/error_codes.h"
 #include "mongo/base/status.h"
+#include "mongo/db/catalog/collection.h"
 #include "mongo/db/client.h"
 #include "mongo/db/concurrency/write_conflict_exception.h"
 #include "mongo/db/curop.h"
@@ -134,11 +135,18 @@ Status IndexAccessMethod::insert(OperationContext* txn,
 
     Status ret = Status::OK();
     for (BSONObjSet::const_iterator i = keys.begin(); i != keys.end(); ++i) {
-        Status status = _newInterface->insert(txn, *i, loc, options.dupsAllowed);
+        const BSONObj& key = *i;
+        Status status = _newInterface->insert(txn, key, loc, options.dupsAllowed);
 
         // Everything's OK, carry on.
         if (status.isOK()) {
             ++*numInserted;
+            txn->recoveryUnit()->onCommit([this, key, loc] {
+                auto collValidatorObserver = _descriptor->getCollection()->getValidateObserver();
+                if (collValidatorObserver) {
+                    collValidatorObserver->logInsert(key, loc, _descriptor->indexNamespace());
+                }
+            });
             continue;
         }
 
@@ -179,6 +187,12 @@ void IndexAccessMethod::removeOneKey(OperationContext* txn,
                                      bool dupsAllowed) {
     try {
         _newInterface->unindex(txn, key, loc, dupsAllowed);
+        txn->recoveryUnit()->onCommit([this, key, loc] {
+            auto collValidatorObserver = _descriptor->getCollection()->getValidateObserver();
+            if (collValidatorObserver) {
+                collValidatorObserver->logRemove(key, loc, _descriptor->indexNamespace());
+            }
+        });
     } catch (AssertionException& e) {
         log() << "Assertion failure: _unindex failed " << _descriptor->indexNamespace();
         log() << "Assertion failure: _unindex failed: " << redact(e) << "  key:" << key.toString()
@@ -371,6 +385,14 @@ Status IndexAccessMethod::update(OperationContext* txn,
 
     for (size_t i = 0; i < ticket.removed.size(); ++i) {
         _newInterface->unindex(txn, ticket.removed[i], ticket.loc, ticket.dupsAllowed);
+        const BSONObj& key = ticket.removed[i];
+        const RecordId& loc = ticket.loc;
+        txn->recoveryUnit()->onCommit([this, key, loc] {
+            auto collValidatorObserver = _descriptor->getCollection()->getValidateObserver();
+            if (collValidatorObserver) {
+                collValidatorObserver->logRemove(key, loc, _descriptor->indexNamespace());
+            }
+        });
     }
 
     for (size_t i = 0; i < ticket.added.size(); ++i) {
@@ -383,6 +405,15 @@ Status IndexAccessMethod::update(OperationContext* txn,
 
             return status;
         }
+
+        const BSONObj& key = ticket.removed[i];
+        const RecordId& loc = ticket.loc;
+        txn->recoveryUnit()->onCommit([this, key, loc] {
+            auto collValidatorObserver = _descriptor->getCollection()->getValidateObserver();
+            if (collValidatorObserver) {
+                collValidatorObserver->logInsert(key, loc, _descriptor->indexNamespace());
+            }
+        });
     }
 
     *numInserted = ticket.added.size();

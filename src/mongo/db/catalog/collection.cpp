@@ -1042,7 +1042,8 @@ const CollatorInterface* Collection::getDefaultCollator() const {
 
 namespace {
 
-static const uint32_t kKeyCountTableSize = 1U << 22;
+// static const uint32_t kKeyCountTableSize = 1U << 22;
+static const uint32_t kKeyCountTableSize = 1U << 3;
 
 using IndexKeyCountTable = std::array<uint64_t, kKeyCountTableSize>;
 using ValidateResultsMap = std::map<std::string, ValidateResults>;
@@ -1052,8 +1053,13 @@ public:
     RecordStoreValidateAdaptor(OperationContext* txn,
                                ValidateCmdLevel level,
                                IndexCatalog* ic,
-                               ValidateResultsMap* irm)
-        : _txn(txn), _level(level), _indexCatalog(ic), _indexNsResultsMap(irm) {
+                               ValidateResultsMap* irm,
+                               const RecordStore* recordStore)
+        : _txn(txn),
+          _level(level),
+          _indexCatalog(ic),
+          _indexNsResultsMap(irm),
+          _recordStore(recordStore) {
         _ikc = std::unique_ptr<IndexKeyCountTable>(new IndexKeyCountTable());
     }
 
@@ -1064,6 +1070,7 @@ public:
         if (status.isOK()) {
             *dataSize = recordBson.objsize();
         } else {
+            // TODO; report errors to the health monitor directly from here.
             return status;
         }
 
@@ -1125,6 +1132,7 @@ public:
                     }
                 } else {
                     _hasDocWithoutIndexEntry = true;
+                    _invalidIKCEntries.emplace(indexEntryHash);
                     results.valid = false;
                 }
             }
@@ -1241,10 +1249,152 @@ public:
         }
     }
 
+    void applyObserverChanges(const Collection::ValidateObserver* observer) {
+        for (const auto& op : observer->getIndexOperations()) {
+            const std::string& indexNs = std::get<3>(op);
+            uint32_t indexNsHash;
+            MurmurHash3_x86_32(indexNs.c_str(), indexNs.size(), 0, &indexNsHash);
+
+            uint32_t indexEntryHash = hashIndexEntry(std::get<1>(op), std::get<2>(op), indexNsHash);
+            uint64_t& indexEntryCount = (*_ikc)[indexEntryHash];
+            switch (std::get<0>(op)) {
+                case kIndexOperationTypeInsert:
+                    if (indexEntryCount == 0) {
+                        _indexKeyCountTableNumEntries++;
+                    }
+                    indexEntryCount++;
+                    break;
+                case kIndexOperationTypeRemove:
+                    if (indexEntryCount != 0) {
+                        indexEntryCount--;
+                        dassert(indexEntryCount >= 0);
+                        if (indexEntryCount == 0) {
+                            _indexKeyCountTableNumEntries--;
+                        }
+                    } else {
+                        // Reaching here means we succeeded in removing an index entry that doesn't
+                        // exist.
+                        MONGO_UNREACHABLE
+                    }
+                    break;
+                default:
+                    MONGO_UNREACHABLE
+                    break;
+            }
+        }
+    }
+
+    void findInvalidDocuments() {
+        log() << "Finding invalid documents";
+
+        // Add _ikc entries that are still >0
+        for (size_t i = 0; i < _ikc->size(); i++) {
+            if ((*_ikc)[i] != 0) {
+                _invalidIKCEntries.emplace(i);
+            }
+        }
+
+        // log() << "Printing invalid entries";
+        // for (auto entry : _invalidIKCEntries) {
+            // log() << entry;
+        // }
+
+        // TODO: support multikey
+        // TODO: use keystring 
+        std::map<std::string, std::map<RecordId, BSONObj>> keyInfoMap;
+
+        // Traverse index again, record pairs of key,loc in a set
+        IndexCatalog::IndexIterator i = _indexCatalog->getIndexIterator(_txn, false);
+        while (i.more()) {
+            _txn->checkForInterrupt();
+
+            const IndexDescriptor* descriptor = i.next();
+            auto indexNs = descriptor->indexNamespace();
+
+            IndexAccessMethod* iam = _indexCatalog->getIndex(descriptor);
+            std::unique_ptr<SortedDataInterface::Cursor> cursor = iam->newCursor(_txn, true);
+
+            uint32_t indexNsHash;
+            MurmurHash3_x86_32(indexNs.c_str(), indexNs.size(), 0, &indexNsHash);
+
+            for (auto indexEntry = cursor->seek(BSONObj(), true); indexEntry;
+                 indexEntry = cursor->next()) {
+                uint32_t keyHash = hashIndexEntry(indexEntry->key, indexEntry->loc, indexNsHash);
+                if (_invalidIKCEntries.count(keyHash)) {
+                    keyInfoMap[indexNs][indexEntry->loc] = indexEntry->key;
+                }
+            }
+        }
+
+        // Decrement key,loc pair in the map, report missing pairs
+        auto cursor = _recordStore->getCursor(_txn, true);
+        while (auto record = cursor->next()) {
+            BSONObj recordBson = record->data.toBson();
+
+            IndexCatalog::IndexIterator i = _indexCatalog->getIndexIterator(_txn, false);
+
+            while (i.more()) {
+                const IndexDescriptor* descriptor = i.next();
+                const IndexAccessMethod* iam = _indexCatalog->getIndex(descriptor);
+
+                if (descriptor->isPartial()) {
+                    const IndexCatalogEntry* ice = _indexCatalog->getEntry(descriptor);
+                    if (!ice->getFilterExpression()->matchesBSON(recordBson)) {
+                        continue;
+                    }
+                }
+
+                BSONObjSet documentKeySet = SimpleBSONObjComparator::kInstance.makeBSONObjSet();
+                // There's no need to compute the prefixes of the indexed fields that cause the
+                // index to be multikey when validating the index keys.
+                MultikeyPaths* multikeyPaths = nullptr;
+                iam->getKeys(recordBson, &documentKeySet, multikeyPaths);
+
+                const string indexNs = descriptor->indexNamespace();
+                uint32_t indexNsHash;
+                MurmurHash3_x86_32(indexNs.c_str(), indexNs.size(), 0, &indexNsHash);
+
+                for (const auto& key : documentKeySet) {
+                    uint32_t keyHash = hashIndexEntry(key, record->id, indexNsHash);
+                    if (_invalidIKCEntries.count(keyHash)) {
+                        auto it = keyInfoMap[indexNs].find(record->id);
+                        // only loop once. There's only one key since multikey is not supported At the moment.
+                        if (it != keyInfoMap[indexNs].end()) {
+                            // log() << "found";
+                            if (keyInfoMap[indexNs][record->id].woCompare(key) == 0) {
+                                // log() << "erased";
+                                keyInfoMap[indexNs].erase(it);
+                            } else {
+                                // log() << "========= FOUND CORRUPTION, mismatched index and document: " <<
+                                log() << "========= FOUND CORRUPTION: " <<
+                                         "RecordId: " << record->id << ", key: " << key << ", document: " << recordBson << ", index NS: " << indexNs;
+                            }
+                        } else {
+                            // log() << "========= FOUND CORRUPTION, document key without index entries: " <<
+                            log() << "========= FOUND CORRUPTION: " <<
+                                     "RecordId: " << record->id << ", key: " << key << ", document: " << recordBson << ", index NS: " << indexNs;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Print leftover pairs in the set
+        for (const auto& recordIdMap : keyInfoMap) {
+            for (const auto& res : recordIdMap.second) {
+                // log() << "========= FOUND CORRUPTION, index entries without documents: " <<
+                log() << "========= FOUND CORRUPTION: " <<
+                         "RecordId: " << res.first << ", key: " << res.second << ", index NS: " << recordIdMap.first;
+            }
+        }
+    }
+
 private:
     std::map<string, long long> _longKeys;
     std::map<string, long long> _keyCounts;
     std::unique_ptr<IndexKeyCountTable> _ikc;
+    std::set<uint32_t> _invalidIKCEntries;
 
     uint32_t _indexKeyCountTableNumEntries = 0;
     bool _hasDocWithoutIndexEntry = false;
@@ -1253,8 +1403,10 @@ private:
     ValidateCmdLevel _level;
     IndexCatalog* _indexCatalog;             // Not owned.
     ValidateResultsMap* _indexNsResultsMap;  // Not owned.
+    const RecordStore* _recordStore;         // Not owned.
 
     uint32_t hashIndexEntry(const BSONObj& key, const RecordId& loc, uint32_t hash) {
+        // log() << key;
         // We're only using KeyString to get something hashable here, so version doesn't matter.
         KeyString ks(KeyString::Version::V1, key, Ordering::make(BSONObj()), loc);
         MurmurHash3_x86_32(ks.getTypeBits().getBuffer(), ks.getTypeBits().getSize(), hash, &hash);
@@ -1264,23 +1416,46 @@ private:
 };
 }  // namespace
 
+const std::vector<IndexOperation>& Collection::ValidateObserver::getIndexOperations() const {
+    return _indexOperations;
+}
+
+void Collection::ValidateObserver::logInsert(BSONObj key, RecordId recordId, string ns) {
+    log() << "logging insert: " << key;
+    _indexOperations.emplace_back(IndexOperation(kIndexOperationTypeInsert, key, recordId, ns));
+}
+
+void Collection::ValidateObserver::logRemove(BSONObj key, RecordId recordId, string ns) {
+    log() << "logging remove: " << key;
+    _indexOperations.emplace_back(IndexOperation(kIndexOperationTypeRemove, key, recordId, ns));
+}
+
 Status Collection::validate(OperationContext* txn,
                             ValidateCmdLevel level,
                             ValidateResults* results,
-                            BSONObjBuilder* output) {
+                            BSONObjBuilder* output,
+                            Lock::CollectionLock* collLk) {
     dassert(txn->lockState()->isCollectionLockedForMode(ns().toString(), MODE_IS));
-
     try {
         ValidateResultsMap indexNsResultsMap;
-        std::unique_ptr<RecordStoreValidateAdaptor> indexValidator(
-            new RecordStoreValidateAdaptor(txn, level, &_indexCatalog, &indexNsResultsMap));
+        std::unique_ptr<RecordStoreValidateAdaptor> indexValidator(new RecordStoreValidateAdaptor(
+            txn, level, &_indexCatalog, &indexNsResultsMap, _recordStore));
 
         BSONObjBuilder keysPerIndex;  // not using subObjStart to be exception safe
-        IndexCatalog::IndexIterator i = _indexCatalog.getIndexIterator(txn, false);
 
+        // Non index-document mismatch errors can't be repaired here.
+        bool shouldAttemptRepair = true;
+
+        // Lock to initialize the observer and obtain a snapshot.
+        collLk->relockWithMode(MODE_X);
+        _validateObserver = stdx::make_unique<ValidateObserver>();
+        collLk->relockWithMode(MODE_IS);
+
+        IndexCatalog::IndexIterator i = _indexCatalog.getIndexIterator(txn, false);
         // Validate Indexes.
         while (i.more()) {
             txn->checkForInterrupt();
+
             const IndexDescriptor* descriptor = i.next();
             log(LogComponent::kIndex) << "validating index " << descriptor->indexNamespace()
                                       << endl;
@@ -1295,14 +1470,29 @@ Status Collection::validate(OperationContext* txn,
                 indexValidator->traverseIndex(iam, descriptor, curIndexResults, numKeys);
             } else {
                 results->valid = false;
+                // Index access method returned some non-specific error that we can't repair.
+                shouldAttemptRepair = false;
             }
             indexNsResultsMap[descriptor->indexNamespace()] = curIndexResults;
         }
+        log() << "first snapshot id" << txn->recoveryUnit()->getSnapshotId();
+        txn->recoveryUnit()->abandonSnapshot();
+
+        sleep(10);
+
+
+        collLk->relockWithMode(MODE_X);
+        indexValidator->applyObserverChanges(getValidateObserver());
+        collLk->relockWithMode(MODE_IS);
+        _validateObserver.release();
+
+        log() << "second snapshot id" << txn->recoveryUnit()->getSnapshotId();
 
         // Validate RecordStore and, if `level == kValidateFull`, cross validate indexes and
         // RecordStore.
         if (results->valid) {
-            auto status = _recordStore->validate(txn, level, indexValidator.get(), results, output);
+            auto status =
+                _recordStore->validate(txn, level, indexValidator.get(), results, output);
             // RecordStore::validate always returns Status::OK(). Errors are reported through
             // `results`.
             dassert(status.isOK());
@@ -1318,21 +1508,32 @@ Status Collection::validate(OperationContext* txn,
                 results->valid = false;
             } else if (indexValidator->tooFewIndexEntries()) {
                 results->valid = false;
+            } else if (!results->valid) {
+                // Either WT verify failed or we have invalid BSON, repair can't be done here.
+                shouldAttemptRepair = false;
             }
         }
 
         // Validate index key count.
         if (results->valid) {
-            IndexCatalog::IndexIterator i = _indexCatalog.getIndexIterator(txn, false);
-            while (i.more()) {
-                IndexDescriptor* descriptor = i.next();
-                ValidateResults& curIndexResults = indexNsResultsMap[descriptor->indexNamespace()];
+            // IndexCatalog::IndexIterator i = _indexCatalog.getIndexIterator(txn, false);
+            // while (i.more()) {
+            //     IndexDescriptor* descriptor = i.next();
+            //     ValidateResults& curIndexResults =
+            //         indexNsResultsMap[descriptor->indexNamespace()];
 
-                if (curIndexResults.valid) {
-                    indexValidator->validateIndexKeyCount(
-                        descriptor, _recordStore->numRecords(txn), curIndexResults);
-                }
-            }
+            //     if (curIndexResults.valid) {
+            //         indexValidator->validateIndexKeyCount(
+            //             descriptor, _recordStore->numRecords(txn), curIndexResults);
+            //     }
+            // }
+        }
+
+        // TODO: uncomment this once we have the corruption script.
+        if (!results->valid && shouldAttemptRepair) {
+        // if (shouldAttemptRepair) {
+            collLk->relockWithMode(MODE_X);
+            indexValidator->findInvalidDocuments();
         }
 
         std::unique_ptr<BSONObjBuilder> indexDetails(level == kValidateFull ? new BSONObjBuilder()
