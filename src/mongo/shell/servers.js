@@ -6,6 +6,11 @@ var MongoRunner, _startMongod, startMongoProgram, runMongoProgram, startMongoPro
 
     var shellVersion = version;
 
+    // Record the exit codes of mongod and mongos processes that crashed during startup keyed by
+    // pid. This map is cleared when MongoRunner._startWithArgs and MongoRunner.stopMongod/s are
+    // called.
+    var serverExitCodeMap = {};
+
     var _parsePath = function() {
         var dbpath = "";
         for (var i = 0; i < arguments.length; ++i)
@@ -822,7 +827,7 @@ var MongoRunner, _startMongod, startMongoProgram, runMongoProgram, startMongoPro
     /**
      * Kills a mongod process.
      *
-     * @param {number} port the port of the process to kill
+     * @param {Mongo} conn the connection object to the process to kill
      * @param {number} signal The signal number to use for killing
      * @param {Object} opts Additional options. Format:
      *    {
@@ -835,11 +840,9 @@ var MongoRunner, _startMongod, startMongoProgram, runMongoProgram, startMongoPro
      * Note: The auth option is required in a authenticated mongod running in Windows since
      *  it uses the shutdown command, which requires admin credentials.
      */
-    MongoRunner.stopMongod = function(port, signal, opts) {
-
-        if (!port) {
-            print("Cannot stop mongo process " + port);
-            return null;
+    MongoRunner.stopMongod = function(conn, signal, opts) {
+        if (!(conn instanceof Mongo)) {
+            throw new Error("first arg must be a connection to the process to stop");
         }
 
         signal = parseInt(signal) || 15;
@@ -847,32 +850,30 @@ var MongoRunner, _startMongod, startMongoProgram, runMongoProgram, startMongoPro
 
         var allowedExitCodes = [MongoRunner.EXIT_CLEAN];
 
-        if (_isWindows()) {
-            // Return code of processes killed with TerminateProcess on Windows
-            allowedExitCodes.push(1);
-        } else {
-            // Return code of processes killed with SIGKILL on POSIX systems
-            allowedExitCodes.push(-9);
-        }
-
         if (opts.allowedExitCodes) {
-            allowedExitCodes = allowedExitCodes.concat(opts.allowedExitCodes);
+            allowedExitCodes = opts.allowedExitCodes;
         }
 
-        if (port.port)
-            port = parseInt(port.port);
+        var port = parseInt(conn.port);
 
-        if (port instanceof ObjectId) {
-            var opts = MongoRunner.savedOptions(port);
-            if (opts)
-                port = parseInt(opts.port);
+        var pid = conn.pid;
+
+        // If the return code is in the serverExitCodeMap, it means the server crashed on startup.
+        // We just use the recorded return code instead of stopping the program.
+        var returnCode;
+        if (pid in serverExitCodeMap) {
+            returnCode = serverExitCodeMap[pid];
+            delete serverExitCodeMap[pid];
+        } else {
+            returnCode = stopMongoProgramByPid(pid, signal, opts);
         }
-
-        var returnCode = _stopMongoProgram(parseInt(port), signal, opts);
 
         if (!Array.contains(allowedExitCodes, returnCode)) {
             throw new MongoRunner.StopError(
-                `MongoDB process on port ${port} exited with error code ${returnCode}`, returnCode);
+                "MongoDB process on port " + port + " exited with error code ", returnCode);
+        } else if (returnCode !== MongoRunner.EXIT_CLEAN) {
+            print("MongoDB process on port " + port + " intentionally exited with error code ",
+                  returnCode);
         }
 
         return returnCode;
@@ -1130,6 +1131,7 @@ var MongoRunner, _startMongod, startMongoProgram, runMongoProgram, startMongoPro
             pid = _startMongoProgram({args: argArray, env: env});
         }
 
+        delete serverExitCodeMap[pid];
         if (!waitForConnect) {
             return {
                 pid: pid,
@@ -1143,10 +1145,10 @@ var MongoRunner, _startMongod, startMongoProgram, runMongoProgram, startMongoPro
                 conn.pid = pid;
                 return true;
             } catch (e) {
-                if (!checkProgram(pid)) {
+                var res = checkProgram(pid);
+                if (!res.alive) {
                     print("Could not start mongo program at " + port + ", process ended");
-
-                    // Break out
+                    serverExitCodeMap[pid] = res.exitCode;
                     return true;
                 }
             }
