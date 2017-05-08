@@ -1006,8 +1006,8 @@ BSONObj getStopMongodOpts(const BSONObj& a) {
 /** stopMongoProgram(port[, signal]) */
 BSONObj StopMongoProgram(const BSONObj& a, void* data) {
     int nFields = a.nFields();
-    uassert(40441, "wrong number of arguments", nFields >= 1 && nFields <= 3);
-    uassert(15853, "stopMongo needs a number", a.firstElement().isNumber());
+    uassert(ErrorCodes::FailedToParse, "wrong number of arguments", nFields >= 1 && nFields <= 3);
+    uassert(ErrorCodes::BadValue, "stopMongo needs a number", a.firstElement().isNumber());
     int port = int(a.firstElement().number());
     int code = killDb(port, ProcessId::fromNative(0), getSignal(a), getStopMongodOpts(a));
     log() << "shell: stopped mongo program on port " << port;
@@ -1016,8 +1016,8 @@ BSONObj StopMongoProgram(const BSONObj& a, void* data) {
 
 BSONObj StopMongoProgramByPid(const BSONObj& a, void* data) {
     int nFields = a.nFields();
-    uassert(40440, "wrong number of arguments", nFields >= 1 && nFields <= 3);
-    uassert(15852, "stopMongoByPid needs a number", a.firstElement().isNumber());
+    uassert(ErrorCodes::FailedToParse, "wrong number of arguments", nFields >= 1 && nFields <= 3);
+    uassert(ErrorCodes::BadValue, "stopMongoByPid needs a number", a.firstElement().isNumber());
     ProcessId pid = ProcessId::fromNative(int(a.firstElement().number()));
     int code = killDb(0, pid, getSignal(a), getStopMongodOpts(a));
     log() << "shell: stopped mongo program on pid " << pid;

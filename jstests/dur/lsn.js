@@ -94,7 +94,7 @@ log("wait a while for a sync and an lsn write");
 sleep(14);  // wait for lsn write
 
 log("kill mongod -9");
-MongoRunner.stopMongod(conn, /*signal*/ 9);
+MongoRunner.stopMongod(conn, 9, {allowedExitCodes: [MongoRunner.EXIT_ABRUPT]});
 
 // journal file should be present, and non-empty as we killed hard
 

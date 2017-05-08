@@ -125,7 +125,7 @@ verify();
 
 // kill the process hard
 log("kill 9");
-MongoRunner.stopMongod(conn.port, /*signal*/ 9);
+MongoRunner.stopMongod(conn, 9, {allowedExitCodes: [MongoRunner.EXIT_ABRUPT]});
 
 // journal file should be present, and non-empty as we killed hard
 

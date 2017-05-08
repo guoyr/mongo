@@ -60,7 +60,7 @@
                 // do an extra journaled write to make all visible commits durable, before killing
                 // the mongod.
                 assert.writeOK(testDB.nojournal.insert({final: true}, {writeConcern: {j: true}}));
-                MongoRunner.stopMongod(conn, 9);
+                MongoRunner.stopMongod(conn, 9, {allowedExitCodes: [MongoRunner.EXIT_ABRUPT]});
                 return true;
             }
             return false;

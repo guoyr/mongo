@@ -869,8 +869,7 @@ var MongoRunner, _startMongod, startMongoProgram, runMongoProgram, startMongoPro
         }
 
         if (!Array.contains(allowedExitCodes, returnCode)) {
-            throw new MongoRunner.StopError(
-                "MongoDB process on port " + port + " exited with error code ", returnCode);
+            throw new MongoRunner.StopError(returnCode);
         } else if (returnCode !== MongoRunner.EXIT_CLEAN) {
             print("MongoDB process on port " + port + " intentionally exited with error code ",
                   returnCode);

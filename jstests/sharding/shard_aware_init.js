@@ -44,7 +44,7 @@
                                                                       shardIdentityDoc);
             assert.eq(1, res.nModified);
 
-            MongoRunner.stopMongod(mongodConn.port);
+            MongoRunner.stopMongod(mongodConn);
 
             newMongodOptions.shardsvr = '';
             mongodConn = MongoRunner.runMongod(newMongodOptions);
@@ -88,7 +88,7 @@
 
         var newMongodOptions = Object.extend(mongodConn.savedOptions, {restart: true});
 
-        MongoRunner.stopMongod(mongodConn.port);
+        MongoRunner.stopMongod(mongodConn);
         mongodConn = MongoRunner.runMongod(newMongodOptions);
         waitForMaster(mongodConn);
 
@@ -104,7 +104,7 @@
         //
 
         // Note: modification of the shardIdentity is allowed only when not running with --shardsvr
-        MongoRunner.stopMongod(mongodConn.port);
+        MongoRunner.stopMongod(mongodConn);
         delete newMongodOptions.shardsvr;
         mongodConn = MongoRunner.runMongod(newMongodOptions);
         waitForMaster(mongodConn);
@@ -112,7 +112,7 @@
         assert.writeOK(mongodConn.getDB('admin').system.version.update(
             {_id: 'shardIdentity'}, {_id: 'shardIdentity', shardName: 'x', clusterId: ObjectId()}));
 
-        MongoRunner.stopMongod(mongodConn.port);
+        MongoRunner.stopMongod(mongodConn);
 
         newMongodOptions.shardsvr = '';
         assert.throws(function() {
@@ -127,7 +127,7 @@
         try {
             // The server was terminated not by calling stopMongod earlier, this will cleanup
             // the process from registry in shell_utils_launcher.
-            MongoRunner.stopMongod(newMongodOptions.port);
+            MongoRunner.stopMongod(mongodConn);
         } catch (ex) {
             if (!(ex instanceof (MongoRunner.StopError))) {
                 throw ex;
@@ -145,7 +145,7 @@
 
     runTest(mongod, st.configRS.getURL());
 
-    MongoRunner.stopMongod(mongod.port);
+    MongoRunner.stopMongod(mongod);
 
     var replTest = new ReplSetTest({nodes: 1});
     replTest.startSet({shardsvr: ''});
