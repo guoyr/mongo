@@ -128,6 +128,9 @@ def parse_command_line():
     parser.add_option("--numClientsPerFixture", type="int", dest="num_clients_per_fixture",
                       help="Number of clients running tests per fixture")
 
+    parser.add_option("--perfReportFile", dest="perf_report_file", metavar="PERF_REPORT",
+                      help="Writes a JSON file with result of performance tests.")
+
     parser.add_option("--preallocJournal", type="choice", action="store", dest="prealloc_journal",
                       choices=("on", "off"), metavar="ON|OFF",
                       help=("Enables or disables preallocation of journal files for all mongod"
@@ -251,6 +254,24 @@ def parse_command_line():
     evergreen_options.add_option("--variantName", dest="variant_name", metavar="VARIANT_NAME",
                                  help=("Sets the name of the Evergreen build variant running the"
                                        " tests."))
+
+    benchmark_options = optparse.OptionGroup(
+        parser,
+        title="Benchmark test options",
+        description=("Options passed to the Benchmark framework")
+    )
+
+    parser.add_option_group(benchmark_options)
+
+    benchmark_options.add_option("--benchmarkFilter", dest="benchmark_filter",
+                                 metavar="BENCHMARK_FILTER",
+                                 help="Regex to filter benchmark tests to run")
+    benchmark_options.add_option("--benchmarkListTests", dest="benchmark_list_tests",
+                                 action="store_true",
+                                 metavar="BENCHMARK_LIST_TESTS")
+    benchmark_options.add_option("--benchmarkMinTimeSecs", dest="benchmark_min_time",
+                                 metavar="BENCHMARK_MIN_TIME",
+                                 help="Minimum time to run each benchmark test for")
 
     parser.set_defaults(logger_file="console",
                         dry_run="off",

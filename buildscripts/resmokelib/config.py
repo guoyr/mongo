@@ -10,7 +10,6 @@ import os
 import os.path
 import time
 
-
 ##
 # Default values.
 ##
@@ -82,7 +81,6 @@ DEFAULTS = {
     "wt_engine_config": None,
     "wt_index_config": None
 }
-
 
 _SuiteOptions = collections.namedtuple("_SuiteOptions", [
     "description",
@@ -166,7 +164,6 @@ class SuiteOptions(_SuiteOptions):
 
 SuiteOptions.ALL_INHERITED = SuiteOptions(**dict(zip(SuiteOptions._fields,
                                                      itertools.repeat(SuiteOptions.INHERIT))))
-
 
 ##
 # Variables that are set by the user at the command line or with --options.
@@ -321,6 +318,21 @@ WT_ENGINE_CONFIG = None
 # If set, then all mongod's started by resmoke.py and by the mongo shell will use the specified
 # WiredTiger index configuration settings.
 WT_INDEX_CONFIG = None
+
+PERF_REPORT_FILE = None
+
+# Benchmark options that map to Google Benchmark options when converted to lowercase.
+BENCHMARK_CONFIG = {
+    "BENCHMARK_FILTER": None,
+    "BENCHMARK_LIST_TESTS": None,
+    "BENCHMARK_MIN_TIME": None,  # Seconds.
+
+    # Internal Options
+    "BENCHMARK_OUT": None,
+    "BENCHMARK_OUT_FORMAT": None,
+    "BENCHMARK_REPETITIONS": None,
+    "BENCHMARK_VERBOSITY": None,
+}
 
 ##
 # Internally used configuration options that aren't exposed to the user

@@ -6,6 +6,5 @@ selector:
 
 # TODO: Remove the default executor configuration after SERVER-33201.
 executor:
-  config:
-    program_options:
-      benchmark_repetitions: 6
+  config: {}
+
