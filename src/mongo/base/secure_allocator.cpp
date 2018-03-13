@@ -328,8 +328,7 @@ std::shared_ptr<Allocation> lastAllocation = nullptr;
 
 }  // namespace
 
-MONGO_INITIALIZER_GENERAL(SecureAllocator, ("SystemInfo"), MONGO_NO_DEPENDENTS)
-(InitializerContext* context) {
+MONGO_INITIALIZER(SecureAllocator)(InitializerContext* context) {
 #if _WIN32
     // Enable the increase working set size privilege in our access token.
     EnablePrivilege(SE_INC_WORKING_SET_NAME);

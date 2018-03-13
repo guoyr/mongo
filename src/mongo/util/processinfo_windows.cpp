@@ -77,7 +77,7 @@ ProcessInfo::ProcessInfo(ProcessId pid) {}
 ProcessInfo::~ProcessInfo() {}
 
 // get the number of CPUs available to the current process
-boost::optional<unsigned long> ProcessInfo::getNumAvailableCores() {
+boost::optional<unsigned long> ProcessInfo::getNumCoresForProcess() {
     DWORD_PTR process_mask, system_mask;
 
     if (GetProcessAffinityMask(GetCurrentProcess(), &process_mask, &system_mask)) {
