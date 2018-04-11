@@ -1,6 +1,6 @@
 load('jstests/libs/discover_topology.js');
 
-class FSMShardingTest {
+var FSMShardingTest = class {
     constructor(connStr) {
         /**
          * `topology` has the following format:
@@ -81,7 +81,10 @@ class FSMShardingTest {
     }
 
     d(n = 0) {
-        return this.shard(n);
+        // Only return for non-replset shards.
+        if (this._shard_rsts[n] === undefined) {
+            return this._shard_connections[n];
+        }
     }
 
     /**
@@ -122,4 +125,4 @@ class FSMShardingTest {
     /*
      * Internal Functions.
      */
-}
+};
