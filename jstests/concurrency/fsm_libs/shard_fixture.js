@@ -85,6 +85,7 @@ var FSMShardingTest = class {
         if (this._shard_rsts[n] === undefined) {
             return this._shard_connections[n];
         }
+        return undefined;
     }
 
     /**

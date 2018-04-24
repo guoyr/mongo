@@ -203,7 +203,7 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
             res = client.admin.command({"replSetGetStatus": 1})
             read_concern_majority_optime = res["optimes"]["readConcernMajorityOpTime"]
 
-            if read_concern_majority_optime == primary_optime:
+            if read_concern_majority_optime >= primary_optime:
                 up_to_date_nodes.add(node.port)
 
             return len(up_to_date_nodes) == len(self.nodes)
@@ -287,7 +287,7 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
             # of the replica set are configured with priority=0.
             return self.nodes[0]
 
-        def has_master(client, node):
+        def is_primary(client, node):
             """Return if `node` is master."""
             is_master = client.admin.command("isMaster")["ismaster"]
             if is_master:
@@ -296,7 +296,7 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
                 return True
             return False
 
-        return self._await_cmd_all_nodes(has_master, "waiting for a primary", timeout_secs)
+        return self._await_cmd_all_nodes(is_primary, "waiting for a primary", timeout_secs)
 
     def _await_cmd_all_nodes(self, fn, msg, timeout_secs=30):
         """Run `fn` on all nodes until it returns a truthy value.

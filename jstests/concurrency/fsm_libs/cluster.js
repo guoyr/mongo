@@ -286,32 +286,26 @@ var Cluster = function(options) {
                 };
             }
 
-            // Save all mongos and mongod connections
-            var i = 0;
-            var mongos = st.s(0);
-            var mongod = st.d(0);
-            while (mongos) {
-                _conns.mongos.push(mongos);
-                ++i;
-                mongos = st.s(i);
-            }
-            if (options.replication && options.replication.enabled) {
-                var rsTest = st.rs(0);
+            // Save all mongos, mongod, and ReplSet connections (if any).
+            var i;
 
-                i = 0;
-                while (rsTest) {
-                    this._addReplicaSetConns(rsTest);
-                    replSets.push(rsTest);
-                    ++i;
-                    rsTest = st.rs(i);
-                }
-            }
             i = 0;
-            while (mongod) {
-                _conns.mongod.push(mongod);
-                ++i;
-                mongod = st.d(i);
+            while (st.s(i)) {
+                _conns.mongos.push(st.s(i++));
             }
+
+            i = 0;
+            while (st.d(i)) {
+                _conns.mongod.push(st.d(i++));
+            }
+
+            i = 0;
+            while (st.rs(i)) {
+                var rs = st.rs(i++);
+                this._addReplicaSetConns(rs);
+                replSets.push(rs);
+            }
+
         } else if (options.replication.enabled) {
             var replSetConfig = {
                 nodes: makeReplSetTestConfig(options.replication.numNodes,
