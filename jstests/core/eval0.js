@@ -15,10 +15,11 @@ assert.eq(17, db.eval(function(x) {
 }, 7), "B");
 
 // check that functions in system.js work
-db.system.js.insert({
+assert.writeOK(db.system.js.insert({
     _id: "add",
     value: function(x, y) {
         return x + y;
     }
-});
+}));
+
 assert.eq(20, db.eval("this.add(15, 5);"), "C");

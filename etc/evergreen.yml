@@ -4212,7 +4212,7 @@ tasks:
   - func: "do setup"
   - func: "run tests"
     vars:
-      resmoke_args: --suites=replica_sets_jscore_passthrough --storageEngine=wiredTiger
+      resmoke_args: --suites=replica_sets_jscore_multi_stmt_txn --storageEngine=wiredTiger
       run_multiple_jobs: true
 
 - <<: *task_template
