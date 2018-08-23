@@ -4197,6 +4197,22 @@ tasks:
       task_path_suffix: /data/multiversion
       resmoke_args: --suites=generational_fuzzer
 
+## Standalone generational fuzzer for aggregation expressions ##
+- <<: *jstestfuzz_template
+  name: aggregation_expression_optimization_mode_fuzzer
+  commands:
+  - func: "do setup"
+  - func: "do multiversion setup"
+  - func: "run jstestfuzz"
+    vars:
+      jstestfuzz_vars: --numGeneratedFiles 50 --diffTestingMode optimization
+      npm_command: agg-expr-fuzzer
+  - <<: *run_jstestfuzz_tests
+    vars:
+      <<: *jstestfuzz_config_vars
+      task_path_suffix: /data/multiversion
+      resmoke_args: --suites=generational_fuzzer
+
 ## jstestfuzz standalone aggregation generational fuzzer ##
 - <<: *jstestfuzz_template
   name: aggregation_fuzzer
@@ -9169,6 +9185,7 @@ buildvariants:
   - name: aggregation_read_concern_majority_passthrough
   - name: aggregation_sharded_collections_passthrough
   - name: aggregation_expression_multiversion_fuzzer
+  - name: aggregation_expression_optimization_mode_fuzzer
   - name: auth
   - name: causally_consistent_jscore_passthrough
   - name: causally_consistent_jscore_passthrough_auth
@@ -9350,6 +9367,7 @@ buildvariants:
   - name: jsCore_txns
   - name: causally_consistent_jscore_txns_passthrough
   - name: aggregation_expression_multiversion_fuzzer
+  - name: aggregation_expression_optimization_mode_fuzzer
   - name: aggregation_fuzzer
   - name: jstestfuzz
   - name: jstestfuzz_concurrent
@@ -10619,6 +10637,7 @@ buildvariants:
   - name: causally_consistent_jscore_txns_passthrough
   - name: jsonSchema
   - name: aggregation_expression_multiversion_fuzzer
+  - name: aggregation_expression_optimization_mode_fuzzer
   - name: aggregation_fuzzer
   - name: jstestfuzz
   - name: jstestfuzz_concurrent
@@ -11116,6 +11135,8 @@ buildvariants:
   - name: aggregation_one_shard_sharded_collections
   - name: aggregation_read_concern_majority_passthrough
   - name: aggregation_sharded_collections_passthrough
+  - name: aggregation_expression_multiversion_fuzzer
+  - name: aggregation_expression_optimization_mode_fuzzer
   - name: audit
   - name: auth
   - name: auth_audit
@@ -11258,6 +11279,7 @@ buildvariants:
   - name: causally_consistent_jscore_txns_passthrough
   - name: aggregation_fuzzer
   - name: aggregation_expression_multiversion_fuzzer
+  - name: aggregation_expression_optimization_mode_fuzzer
   - name: jstestfuzz
   - name: jstestfuzz_concurrent
   - name: jstestfuzz_concurrent_replication
@@ -13306,6 +13328,8 @@ buildvariants:
   - name: aggregation_one_shard_sharded_collections
   - name: aggregation_read_concern_majority_passthrough
   - name: aggregation_sharded_collections_passthrough
+  - name: aggregation_expression_multiversion_fuzzer
+  - name: aggregation_expression_optimization_mode_fuzzer
   - name: audit
   - name: auth
   - name: auth_audit
@@ -13487,6 +13511,8 @@ buildvariants:
   - name: aggregation_one_shard_sharded_collections
   - name: aggregation_read_concern_majority_passthrough
   - name: aggregation_sharded_collections_passthrough
+  - name: aggregation_expression_multiversion_fuzzer
+  - name: aggregation_expression_optimization_mode_fuzzer
   - name: audit
   - name: auth
   - name: auth_audit
