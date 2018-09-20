@@ -149,7 +149,14 @@ public:
         }
 
         auto optimizer = expression->getOptimizer();
-        return optimizer(std::move(expression));
+
+        try {
+            return optimizer(std::move(expression));
+        } catch (DBException& ex) {
+            ex.addContext("Failed to optimize pipeline. ");
+            throw;
+        }
+
     }
 
     MatchExpression(MatchType type);
