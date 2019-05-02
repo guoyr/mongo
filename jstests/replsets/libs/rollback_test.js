@@ -205,7 +205,8 @@ function RollbackTest(name = "RollbackTest", replSet, expectPreparedTxnsDuringRo
      * Transition from a rollback state to a steady state. Operations applied in this phase will
      * be replicated to all nodes and should not be rolled back.
      */
-    this.transitionToSteadyStateOperations = function({skipdataConsistencyChecks} = {skipdataConsistencyChecks: false}) {
+    this.transitionToSteadyStateOperations = function(
+        {skipdataConsistencyChecks} = {skipdataConsistencyChecks: false}) {
         // If we shut down the primary before the secondary begins rolling back against it, then
         // the secondary may get elected and not actually roll back. In that case we do not check
         // the RBID and just await replication.
@@ -390,7 +391,8 @@ function RollbackTest(name = "RollbackTest", replSet, expectPreparedTxnsDuringRo
         return curSecondary;
     };
 
-    this.restartNode = function(nodeId, signal, startOptions, allowedExitCode, {skipValidation} = {skipValidation: false}) {
+    this.restartNode = function(
+        nodeId, signal, startOptions, allowedExitCode, {skipValidation} = {skipValidation: false}) {
         assert(signal === SIGKILL || signal === SIGTERM, `Received unknown signal: ${signal}`);
         assert.gte(nodeId, 0, "Invalid argument to RollbackTest.restartNode()");
 
@@ -416,9 +418,9 @@ function RollbackTest(name = "RollbackTest", replSet, expectPreparedTxnsDuringRo
         let opts = {skipValidation};
 
         if (allowedExitCode !== undefined) {
-            opts = {allowedExitCode: allowedExitCode, ...opts};
+            Object.assign(opts, {allowedExitCode: allowedExitCode});
         } else if (signal === SIGKILL) {
-            opts = {allowedExitCode: MongoRunner.EXIT_SIGKILL, ...opts};
+            Object.assign(opts, {allowedExitCode: MongoRunner.EXIT_SIGKILL});
         }
 
         log(`Stopping node ${hostName} with signal ${signal}`);
