@@ -205,7 +205,7 @@ function RollbackTest(name = "RollbackTest", replSet, expectPreparedTxnsDuringRo
      * Transition from a rollback state to a steady state. Operations applied in this phase will
      * be replicated to all nodes and should not be rolled back.
      */
-    this.transitionToSteadyStateOperations = function() {
+    this.transitionToSteadyStateOperations = function({skipdataConsistencyChecks} = {skipdataConsistencyChecks: false}) {
         // If we shut down the primary before the secondary begins rolling back against it, then
         // the secondary may get elected and not actually roll back. In that case we do not check
         // the RBID and just await replication.
@@ -251,7 +251,7 @@ function RollbackTest(name = "RollbackTest", replSet, expectPreparedTxnsDuringRo
         // After the previous rollback (if any) has completed and await replication has finished,
         // the replica set should be in a consistent and "fresh" state. We now prepare for the next
         // rollback.
-        if (expectPreparedTxnsDuringRollback === true) {
+        if (expectPreparedTxnsDuringRollback === true || skipdataConsistencyChecks === true) {
             print('Skipping data consistency checks because active prepared transactions are' +
                   ' expected after rollback');
         } else {
@@ -390,7 +390,7 @@ function RollbackTest(name = "RollbackTest", replSet, expectPreparedTxnsDuringRo
         return curSecondary;
     };
 
-    this.restartNode = function(nodeId, signal, startOptions, allowedExitCode) {
+    this.restartNode = function(nodeId, signal, startOptions, allowedExitCode, {skipValidation} = {skipValidation: false}) {
         assert(signal === SIGKILL || signal === SIGTERM, `Received unknown signal: ${signal}`);
         assert.gte(nodeId, 0, "Invalid argument to RollbackTest.restartNode()");
 
@@ -413,11 +413,12 @@ function RollbackTest(name = "RollbackTest", replSet, expectPreparedTxnsDuringRo
             signal = SIGTERM;
         }
 
-        let opts = {};
+        let opts = {skipValidation};
+
         if (allowedExitCode !== undefined) {
-            opts = {allowedExitCode: allowedExitCode};
+            opts = {allowedExitCode: allowedExitCode, ...opts};
         } else if (signal === SIGKILL) {
-            opts = {allowedExitCode: MongoRunner.EXIT_SIGKILL};
+            opts = {allowedExitCode: MongoRunner.EXIT_SIGKILL, ...opts};
         }
 
         log(`Stopping node ${hostName} with signal ${signal}`);
