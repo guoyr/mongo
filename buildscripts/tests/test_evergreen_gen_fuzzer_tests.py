@@ -34,7 +34,7 @@ class TestGenerateEvgTasks(unittest.TestCase):
 
         self.assertEqual(options.num_tasks, len(config["tasks"]))
 
-        command1 = config["tasks"][0]["commands"][1]
+        command1 = config["tasks"][0]["commands"][2]
         self.assertIn(str(options.num_files), command1["vars"]["jstestfuzz_vars"])
         self.assertIn(options.npm_command, command1["vars"]["npm_command"])
         self.assertEqual("run jstestfuzz", command1["func"])
