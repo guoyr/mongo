@@ -1846,7 +1846,7 @@ functions:
 
           # Run parse-jsfiles on 50 files at a time with 32 processes in parallel.
           grep "\.js$" patch_files.txt | sed -e "s|^|$PWD/|" | xargs -P 32 -L 50 \
-          npm run parse-jsfiles --prefix jstestfuzz parse-jsfiles --
+          npm run --prefix jstestfuzz parse-jsfiles
 
   "lint fuzzer sanity all":
     - command: shell.exec
@@ -1862,7 +1862,7 @@ functions:
 
           # Run parse-jsfiles on 50 files at a time with 32 processes in parallel.
           find "$PWD/jstests" "$PWD/src/mongo/db/modules/enterprise" -name "*.js" -print \
-          | xargs -P 32 -L 50 npm run parse-jsfiles --prefix jstestfuzz parse-jsfiles --
+          | xargs -P 32 -L 50 npm run --prefix jstestfuzz parse-jsfiles
 
   "run jstestfuzz":
     - command: shell.exec
