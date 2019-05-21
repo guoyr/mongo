@@ -1838,7 +1838,6 @@ functions:
 
           ${add_nodejs_to_path}
 
-
           if [ "${is_patch}" != "true" ]; then
             echo "Not in a patch build, skipping linting modified JS files for the fuzzer"
             exit 0;
@@ -1846,7 +1845,8 @@ functions:
 
           # Run parse-jsfiles on 50 files at a time with 32 processes in parallel.
           # Grep returns 1 if it fails to find a match.
-          (grep "\.js$" patch_files.txt || true) | xargs -r -I{} echo "$PWD/"{} | xargs -r -P 32 -L 50 npm run --prefix jstestfuzz parse-jsfile --
+          (grep "\.js$" patch_files.txt || true) | sed -e "s|^|$PWD/|" | xargs -P 32 -L 50 npm run --prefix jstestfuzz parse-jsfile --
+
   "lint fuzzer sanity all":
     - command: shell.exec
       shell: bash
@@ -1870,14 +1870,7 @@ functions:
           set -o errexit
           set -o verbose
 
-          cp mongodb*/bin/mongod .
-
-    - command: shell.exec
-      params:
-        working_dir: src
-        script: |
-          set -o errexit
-          set -o verbose
+          cp mongodb*/bin/mongod
 
           git clone --depth 1 git@github.com:10gen/mongo-enterprise-modules.git jstests/enterprise_tests
           git clone --depth 1 git@github.com:10gen/QA.git jstests/qa_tests
