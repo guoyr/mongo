@@ -1798,8 +1798,11 @@ functions:
           ${add_nodejs_to_path}
 
           git clone git@github.com:10gen/jstestfuzz.git
-          npm install --prefix jstestfuzz
-          npm run prepare --prefix jstestfuzz
+
+          pushd jstestfuzz
+            npm install jstestfuzz
+            npm run prepare jstestfuzz
+          popd
 
   "lint fuzzer sanity patch":
     - command: shell.exec
@@ -1812,11 +1815,6 @@ functions:
           set -o verbose
 
           ${add_nodejs_to_path}
-
-          if [ "${is_patch}" != "true" ]; then
-            echo "Not in a patch build, skipping linting modified JS files for the fuzzer"
-            exit 0;
-          fi
 
           # Run parse-jsfiles on 50 files at a time with 32 processes in parallel.
           # Grep returns 1 if it fails to find a match.
@@ -5358,6 +5356,7 @@ tasks:
 
 # Check that the mutational fuzzer can parse JS files modified in a patch build.
 - name: lint_fuzzer_sanity_patch
+  patch_only: true
   commands:
   - command: manifest.load
   - func: "git get project"
