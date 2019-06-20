@@ -139,6 +139,7 @@ variables:
   - name: compile
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
   - *run_jstestfuzz_tests
 
@@ -1646,6 +1647,7 @@ tasks:
   name: jstestfuzz
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
   - <<: *run_jstestfuzz_tests
     vars:
@@ -1657,6 +1659,7 @@ tasks:
   name: jstestfuzz_WT
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
   - <<: *run_jstestfuzz_tests
     vars:
@@ -1668,6 +1671,7 @@ tasks:
   name: jstestfuzz_concurrent_WT
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
     vars:
       jstestfuzz_vars: --numGeneratedFiles 75
@@ -1681,6 +1685,7 @@ tasks:
   name: jstestfuzz_concurrent_replication_WT
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
     vars:
       jstestfuzz_vars: --numGeneratedFiles 75
@@ -1694,6 +1699,7 @@ tasks:
   name: jstestfuzz_concurrent_sharded_WT
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
     vars:
       jstestfuzz_vars: --numGeneratedFiles 75
@@ -1707,6 +1713,7 @@ tasks:
   name: jstestfuzz_replication
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
   - <<: *run_jstestfuzz_tests
     vars:
@@ -1718,6 +1725,7 @@ tasks:
   name: jstestfuzz_replication_WT
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
   - <<: *run_jstestfuzz_tests
     vars:
@@ -1729,6 +1737,7 @@ tasks:
   name: jstestfuzz_replication_initsync
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
     vars:
       jstestfuzz_vars: --numGeneratedFiles 75
@@ -1742,6 +1751,7 @@ tasks:
   name: jstestfuzz_replication_initsync_WT
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
     vars:
       jstestfuzz_vars: --numGeneratedFiles 75
@@ -1755,6 +1765,7 @@ tasks:
   name: jstestfuzz_replication_resync
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
     vars:
       jstestfuzz_vars: --numGeneratedFiles 75
@@ -1768,6 +1779,7 @@ tasks:
   name: jstestfuzz_replication_resync_WT
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
     vars:
       jstestfuzz_vars: --numGeneratedFiles 75
@@ -1781,6 +1793,7 @@ tasks:
   name: jstestfuzz_sharded
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
   - <<: *run_jstestfuzz_tests
     vars:
@@ -1792,6 +1805,7 @@ tasks:
   name: jstestfuzz_sharded_WT
   commands:
   - func: "do setup"
+  - func: "setup jstestfuzz"
   - func: "run jstestfuzz"
   - <<: *run_jstestfuzz_tests
     vars:
