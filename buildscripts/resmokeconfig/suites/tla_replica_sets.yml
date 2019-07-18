@@ -1,0 +1,8 @@
+test_kind: tlc_test
+
+selector:
+  roots:
+    - /Users/guo/mongo-repl-tla/RaftMongo.toolbox/Model_1/MC.tla
+
+executor:
+  config: {}
