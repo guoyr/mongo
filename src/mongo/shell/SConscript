@@ -64,6 +64,7 @@ env.JSHeader(
         "shardingtest.js",
         "servers_misc.js",
         "replsettest.js",
+        "data_consistency_checker.js",
         "bridge.js",
         "keyvault.js",
     ],

@@ -1836,7 +1836,7 @@ var ReplSetTest = function(opts) {
 
             // Extract basic collection info.
             var coll = conn.getDB(dbName).getCollection(collName);
-            var collInfo;
+            var collInfo = null;
 
             // If collInfos is not passed in, call listCollections ourselves.
             if (collInfos === undefined) {
