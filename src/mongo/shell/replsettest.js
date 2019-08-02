@@ -1829,23 +1829,40 @@ var ReplSetTest = function(opts) {
             return inAOnly.concat(inBOnly);
         }
 
-        function printCollectionInfo(connName, conn, dbName, collName) {
+        function printCollectionInfo(connName, conn, dbName, collName, collInfos) {
             var ns = dbName + '.' + collName;
             var hostColl = `${conn.host}--${ns}`;
             var alreadyPrinted = collectionPrinted.has(hostColl);
 
             // Extract basic collection info.
             var coll = conn.getDB(dbName).getCollection(collName);
-            var res = conn.getDB(dbName).runCommand({listCollections: 1, filter: {name: collName}});
-            var collInfo = null;
-            if (res.ok === 1 && res.cursor.firstBatch.length !== 0) {
-                collInfo = {
-                    ns: ns,
-                    host: conn.host,
-                    UUID: res.cursor.firstBatch[0].info.uuid,
-                    count: coll.find().itcount()
-                };
+            var collInfo;
+
+            // If collInfos is not passed in, call listCollections ourselves.
+            if (collInfos === undefined) {
+                const res =
+                    conn.getDB(dbName).runCommand({listCollections: 1, filter: {name: collName}});
+                if (res.ok === 1 && res.cursor.firstBatch.length !== 0) {
+                    collInfo = {
+                        ns: ns,
+                        host: conn.host,
+                        UUID: res.cursor.firstBatch[0].info.uuid,
+                        count: coll.find().itcount()
+                    };
+                }
+            } else {
+                assert.eq(Array.isArray(collInfos), true, 'collInfos must be an array or omitted');
+                const collInfoRaw = collInfos.find(elem => elem.name === collName);
+                if (collInfoRaw) {
+                    collInfo = {
+                        ns: ns,
+                        host: conn.host,
+                        UUID: collInfos.info.uuid,
+                        count: coll.find().itcount()
+                    };
+                }
             }
+
             var infoPrefix = `${connName}(${conn.host}) info for ${ns} : `;
             if (collInfo !== null) {
                 if (alreadyPrinted) {
@@ -1931,6 +1948,20 @@ var ReplSetTest = function(opts) {
             var combinedDBs = new Set(primary.getDBNames());
             const replSetConfig = rst.getReplSetConfigFromNode();
 
+            // Special listCollections filter to prevent reloading the view catalog.
+            const listCollectionsFilter = {
+                $or: [
+                    {type: 'collection'},
+                    {type: {$exists: false}},
+                ]
+            };
+
+            // Filter collection infos manually since we need to repurpose the 'filter'
+            // argument to listCollections for not reloading the catalog.
+            const filterCollInfos = (collInfos, desiredCollNames) => {
+                return collInfos.filter(info => desiredCollNames.includes(info.name));
+            };
+
             slaves.forEach(secondary => {
                 secondary.getDBNames().forEach(dbName => combinedDBs.add(dbName));
             });
@@ -1940,27 +1971,15 @@ var ReplSetTest = function(opts) {
                     continue;
                 }
 
-                try {
-                    var dbHashes = rst.getHashes(dbName, slaves);
-                    var primaryDBHash = dbHashes.master;
-                    var primaryCollections = Object.keys(primaryDBHash.collections);
-                    assert.commandWorked(primaryDBHash);
+                const dbHashes = rst.getHashes(dbName, slaves);
+                const primaryDBHash = dbHashes.master;
+                const primaryCollections = Object.keys(primaryDBHash.collections);
+                assert.commandWorked(primaryDBHash);
 
-                    // Filter only collections that were retrieved by the dbhash. listCollections
-                    // may include non-replicated collections like system.profile.
-                    var primaryCollInfo =
-                        primary.getDB(dbName).getCollectionInfos({name: {$in: primaryCollections}});
-
-                } catch (e) {
-                    if (jsTest.options().skipValidationOnInvalidViewDefinitions) {
-                        assert.commandFailedWithCode(e, ErrorCodes.InvalidViewDefinition);
-                        print('Skipping dbhash check on ' + dbName +
-                              ' because of invalid views in system.views');
-                        continue;
-                    } else {
-                        throw e;
-                    }
-                }
+                // Filter only collections that were retrieved by the dbhash. listCollections
+                // may include non-replicated collections like system.profile.
+                let allCollInfos = primary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
+                const primaryCollInfo = filterCollInfos(allCollInfos, primaryCollections);
 
                 dbHashes.slaves.forEach(secondaryDBHash => {
                     assert.commandWorked(secondaryDBHash);
@@ -1980,8 +1999,10 @@ var ReplSetTest = function(opts) {
                         success = false;
                     }
 
-                    var nonCappedCollNames = primaryCollections.filter(
-                        collName => !primary.getDB(dbName).getCollection(collName).isCapped());
+                    // Don't call isCapped() here to avoid calling listCollections to avoid
+                    // reloading the view catalog.
+                    const nonCappedCollInfos = primaryCollInfo.filter(info => !info.options.capped);
+                    const nonCappedCollNames = nonCappedCollInfos.map(info => info.name);
                     // Only compare the dbhashes of non-capped collections because capped
                     // collections are not necessarily truncated at the same points
                     // across replica set members.
@@ -1999,8 +2020,9 @@ var ReplSetTest = function(opts) {
 
                     // Check that collection information is consistent on the primary and
                     // secondaries.
-                    var secondaryCollInfo = secondary.getDB(dbName).getCollectionInfos(
-                        {name: {$in: secondaryCollections}});
+                    allCollInfos =
+                        secondary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
+                    const secondaryCollInfo = filterCollInfos(allCollInfos, secondaryCollections);
 
                     secondaryCollInfo.forEach(secondaryInfo => {
                         primaryCollInfo.forEach(primaryInfo => {
@@ -2051,8 +2073,10 @@ var ReplSetTest = function(opts) {
                             secondary.getDB(dbName).runCommand({collStats: collName});
 
                         if (primaryCollStats.ok !== 1 || secondaryCollStats.ok !== 1) {
-                            printCollectionInfo('primary', primary, dbName, collName);
-                            printCollectionInfo('secondary', secondary, dbName, collName);
+                            printCollectionInfo(
+                                'primary', primary, dbName, collName, primaryCollInfo);
+                            printCollectionInfo(
+                                'secondary', secondary, dbName, collName, secondaryCollInfo);
                             success = false;
                         } else if (primaryCollStats.capped !== secondaryCollStats.capped ||
                                    (hasSecondaryIndexes &&
