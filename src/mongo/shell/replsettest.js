@@ -1852,12 +1852,6 @@ var ReplSetTest = function(opts) {
                 ]
             };
 
-            // Filter collection infos manually since we need to repurpose the 'filter'
-            // argument to listCollections for not reloading the catalog.
-            const filterCollInfos = (collInfos, desiredCollNames) => {
-                return collInfos.filter(info => desiredCollNames.includes(info.name));
-            };
-
             slaves.forEach(secondary => {
                 secondary.getDBNames().forEach(dbName => combinedDBs.add(dbName));
             });
@@ -1874,15 +1868,19 @@ var ReplSetTest = function(opts) {
 
                 // Filter only collections that were retrieved by the dbhash. listCollections
                 // may include non-replicated collections like system.profile.
-                let allCollInfos = primary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
-                const primaryReplicatedCollInfos =
-                    filterCollInfos(allCollInfos, primaryCollections);
+                let res = primary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
+                const primaryCollInfos = new CollInfos(primary, 'primary', res, dbName);
 
                 dbHashes.slaves.forEach(secondaryDBHash => {
                     assert.commandWorked(secondaryDBHash);
 
                     var secondary = secondaryDBHash._mongo;
                     var secondaryCollections = Object.keys(secondaryDBHash.collections);
+                    // Check that collection information is consistent on the primary and
+                    // secondaries.
+                    const res =
+                        secondary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
+                    const secondaryCollInfos = new CollInfos(secondary, 'secondary', res, dbName);
 
                     if (primaryCollections.length !== secondaryCollections.length) {
                         print(
@@ -1891,25 +1889,17 @@ var ReplSetTest = function(opts) {
                             tojson(dbHashes));
                         for (var diffColl of arraySymmetricDifference(primaryCollections,
                                                                       secondaryCollections)) {
-                            const primaryCollInfo = new CollInfo(
-                                primary, 'primary', primaryCollections, dbName, diffColl);
-
-                            const secondaryCollInfo = new CollInfo(
-                                secondary, 'secondary', secondaryCollections, dbName, diffColl);
                             DataConsistencyChecker.dumpCollectionDiff(this,
                                                                       collectionPrinted,
-                                                                      primaryCollInfo,
-                                                                      secondaryCollInfo,
+                                                                      primaryCollInfos,
+                                                                      secondaryCollInfos,
                                                                       dbName,
                                                                       diffColl);
                         }
                         success = false;
                     }
 
-                    // Don't call isCapped() here to avoid calling listCollections to avoid
-                    // reloading the view catalog.
-                    const nonCappedCollInfos =
-                        primaryReplicatedCollInfos.filter(info => !info.options.capped);
+                    const nonCappedCollInfos = primaryCollInfos.getNonCappedCollInfos();
                     const nonCappedCollNames = nonCappedCollInfos.map(info => info.name);
                     // Only compare the dbhashes of non-capped collections because capped
                     // collections are not necessarily truncated at the same points
@@ -1922,17 +1912,10 @@ var ReplSetTest = function(opts) {
                                   ' collection ' + dbName + '.' + collName + ': ' +
                                   tojson(dbHashes));
                             DataConsistencyChecker.dumpCollectionDiff(
-                                this, primary, secondary, dbName, collName);
+                                this, collectionPrinted, primaryCollInfos, secondaryCollInfos, dbName, collName);
                             success = false;
                         }
                     });
-
-                    // Check that collection information is consistent on the primary and
-                    // secondaries.
-                    allCollInfos =
-                        secondary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
-                    const secondaryReplicatedCollInfos =
-                        filterCollInfos(allCollInfos, secondaryCollections);
 
                     secondaryReplicatedCollInfos.forEach(secondaryInfo => {
                         primaryReplicatedCollInfos.forEach(primaryInfo => {
@@ -1962,7 +1945,7 @@ var ReplSetTest = function(opts) {
                                           'attributes for the collection or view ' + dbName + '.' +
                                           secondaryInfo.name);
                                     DataConsistencyChecker.dumpCollectionDiff(
-                                        this, primary, secondary, dbName, secondaryInfo.name);
+                                        this, collectionPrinted, primaryCollInfos, secondaryCollInfos, dbName, secondaryInfo.name);
                                     success = false;
                                 }
                             }
@@ -1996,7 +1979,7 @@ var ReplSetTest = function(opts) {
                                   ', the primary and secondary have different stats for the ' +
                                   'collection ' + dbName + '.' + collName);
                             DataConsistencyChecker.dumpCollectionDiff(
-                                this, primary, secondary, dbName, collName);
+                                this, collectionPrinted, primaryCollInfos, secondaryCollInfos, dbName, collName);
                             success = false;
                         }
                     });

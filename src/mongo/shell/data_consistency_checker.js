@@ -1,30 +1,51 @@
-class CollInfo {
-    constructor(conn, connName, collInfos, dbName, collName) {
-        assert.eq(Array.isArray(collInfos), true, 'collInfos must be an array or omitted');
+class CollInfos {
+    /**
+     * OO wrapper around the response of db.getCollectionInfos() to avoid calling it multiple times.
+     * This class stores information about all collections but its methods typically apply to a
+     * single collection, so a collName is typically required to be passed in as a parameter.
+     */
+    constructor(conn, connName, collInfosRes,  dbName) {
+        assert.eq(Array.isArray(collInfosRes), true, 'collInfosRes must be an array or omitted');
 
         this.conn = conn;
         this.connName = connName;
-        this.collInfos = collInfos;
-        this.collName = collName;
+        this.collInfosRes = collInfosRes;
         this.dbName = dbName;
     }
 
-    ns() {
-        return this.dbName + '.' + this.collName;
+    ns(collName) {
+        return this.dbName + '.' + collName;
     }
 
-    hostAndNS() {
-        return `${this.conn.host}--${this.ns()}`;
+    /**
+     * Do additional filtering to narrow down collections that have names in collNames.
+     */
+    filter(desiredCollNames) {
+        this.collInfosRes = this.collInfosRes.filter(info => desiredCollNames.includes(info.name));
     }
 
-    print(collectionPrinted) {
-        const alreadyPrinted = collectionPrinted.has(this.hostAndNS());
+    /**
+     * Get collInfo for non-capped collections.
+     *
+     * Don't call isCapped(), which calls listCollections.
+     */
+    getNonCappedCollInfos() {
+        return this.collInfoRes.filter(info => !info.options.capped);
+    }
+
+    hostAndNS(collName) {
+        return `${this.conn.host}--${this.ns(collName)}`;
+    }
+
+    print(collectionPrinted, collName) {
+        const ns = this.ns(collName);
+        const alreadyPrinted = collectionPrinted.has(this.hostAndNS(collName));
 
         // Extract basic collection info.
         const coll = conn.getDB(dbName).getCollection(collName);
         let collInfo = null;
 
-        const collInfoRaw = this.collInfos.find(elem => elem.name === collName);
+        const collInfoRaw = this.collInfosRes.find(elem => elem.name === collName);
         if (collInfoRaw) {
             collInfo = {
                 ns: ns,
@@ -34,10 +55,10 @@ class CollInfo {
             };
         }
 
-        const infoPrefix = `${this.connName}(${this.conn.host}) info for ${this.ns()} : `;
+        const infoPrefix = `${this.connName}(${this.conn.host}) info for ${ns} : `;
         if (collInfo !== null) {
             if (alreadyPrinted) {
-                print(`${this.connName} info for ${this.ns()} already printed. Search for ` +
+                print(`${this.connName} info for ${ns} already printed. Search for ` +
                       `'${infoPrefix}'`);
             } else {
                 print(infoPrefix + tojsononeline(collInfo));
@@ -46,11 +67,11 @@ class CollInfo {
             print(infoPrefix + 'collection does not exist');
         }
 
-        const collStats = conn.getDB(this.dbName).runCommand({collStats: this.collName});
-        const statsPrefix = `${this.connName}(${this.conn.host}) collStats for ${this.ns()}: `;
+        const collStats = conn.getDB(this.dbName).runCommand({collStats: collName});
+        const statsPrefix = `${this.connName}(${this.conn.host}) collStats for ${ns}: `;
         if (collStats.ok === 1) {
             if (alreadyPrinted) {
-                print(`${this.connName} collStats for ${this.ns()} already printed. Search for ` +
+                print(`${this.connName} collStats for ${ns} already printed. Search for ` +
                       `'${statsPrefix}'`);
             } else {
                 print(statsPrefix + tojsononeline(collStats));
@@ -59,7 +80,7 @@ class CollInfo {
             print(`${statsPrefix}  error: ${tojsononeline(collStats)}`);
         }
 
-        collectionPrinted.add(this.hostAndNS());
+        collectionPrinted.add(this.hostAndNS(collName));
 
         // Return true if collInfo & collStats can be retrieved for conn.
         return collInfo !== null && collStats.ok === 1;
@@ -68,21 +89,20 @@ class CollInfo {
 
 class DataConsistencyChecker {
     static dumpCollectionDiff(
-        rst, collectionPrinted, primaryCollInfo, secondaryCollInfo, dbName, collName) {
-        var ns = dbName + '.' + collName;
-        print('Dumping collection: ' + ns);
+        rst, collectionPrinted, primaryCollInfos, secondaryCollInfos, collName) {
+        print('Dumping collection: ' + primaryCollInfos.ns(collName));
 
-        const primaryExists = primaryCollInfo.print(collectionPrinted);
-        const secondaryExists = secondaryCollInfo.print(collectionPrinted);
+        const primaryExists = primaryCollInfos.print(collectionPrinted, collName);
+        const secondaryExists = secondaryCollInfos.print(collectionPrinted, collName);
 
         if (!primaryExists || !secondaryExists) {
-            print(`Skipping checking collection differences for ${ns} since it does not ` +
-                  'exist on primary and secondary');
+            print(`Skipping checking collection differences for ${
+                primaryCollInfos.ns(collName)} since it does not exist on primary and secondary`);
             return;
         }
 
-        const primary = primaryCollInfo.conn;
-        const secondary = secondaryCollInfo.conn;
+        const primary = primaryCollInfos.conn;
+        const secondary = secondaryCollInfos.conn;
 
         const primarySession = primary.getDB('test').getSession();
         const secondarySession = secondary.getDB('test').getSession();
