@@ -1870,6 +1870,7 @@ var ReplSetTest = function(opts) {
                 // may include non-replicated collections like system.profile.
                 let res = primary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
                 const primaryCollInfos = new CollInfos(primary, 'primary', res, dbName);
+                primaryCollInfos.filter(primaryCollections);
 
                 dbHashes.slaves.forEach(secondaryDBHash => {
                     assert.commandWorked(secondaryDBHash);
@@ -1880,6 +1881,7 @@ var ReplSetTest = function(opts) {
                     // secondaries.
                     const res = secondary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
                     const secondaryCollInfos = new CollInfos(secondary, 'secondary', res, dbName);
+                    secondaryCollInfos.filter(secondaryCollections);
 
                     if (primaryCollections.length !== secondaryCollections.length) {
                         print(
