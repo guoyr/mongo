@@ -1894,7 +1894,6 @@ var ReplSetTest = function(opts) {
                                                                       collectionPrinted,
                                                                       primaryCollInfos,
                                                                       secondaryCollInfos,
-                                                                      dbName,
                                                                       diffColl);
                         }
                         success = false;
@@ -1915,14 +1914,13 @@ var ReplSetTest = function(opts) {
                                                                       collectionPrinted,
                                                                       primaryCollInfos,
                                                                       secondaryCollInfos,
-                                                                      dbName,
                                                                       collName);
                             success = false;
                         }
                     });
 
-                    secondaryReplicatedCollInfos.forEach(secondaryInfo => {
-                        primaryReplicatedCollInfos.forEach(primaryInfo => {
+                    secondaryCollInfos.collInfosRes.forEach(secondaryInfo => {
+                        primaryCollInfos.collInfosRes.forEach(primaryInfo => {
                             if (secondaryInfo.name === primaryInfo.name &&
                                 secondaryInfo.type === primaryInfo.type) {
                                 if (ignoreUUIDs) {
@@ -1952,7 +1950,6 @@ var ReplSetTest = function(opts) {
                                                                               collectionPrinted,
                                                                               primaryCollInfos,
                                                                               secondaryCollInfos,
-                                                                              dbName,
                                                                               secondaryInfo.name);
                                     success = false;
                                 }
@@ -1988,7 +1985,6 @@ var ReplSetTest = function(opts) {
                                                                       collectionPrinted,
                                                                       primaryCollInfos,
                                                                       secondaryCollInfos,
-                                                                      dbName,
                                                                       collName);
                             success = false;
                         }

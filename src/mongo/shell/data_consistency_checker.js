@@ -30,7 +30,7 @@ class CollInfos {
      * Don't call isCapped(), which calls listCollections.
      */
     getNonCappedCollNames() {
-        const infos = this.collInfoRes.filter(info => !info.options.capped);
+        const infos = this.collInfosRes.filter(info => !info.options.capped);
         return infos.map(info => info.name);
     }
 
@@ -43,14 +43,14 @@ class CollInfos {
         const alreadyPrinted = collectionPrinted.has(this.hostAndNS(collName));
 
         // Extract basic collection info.
-        const coll = conn.getDB(dbName).getCollection(collName);
+        const coll = this.conn.getDB(this.dbName).getCollection(collName);
         let collInfo = null;
 
         const collInfoRaw = this.collInfosRes.find(elem => elem.name === collName);
         if (collInfoRaw) {
             collInfo = {
                 ns: ns,
-                host: conn.host,
+                host: this.conn.host,
                 UUID: collInfoRaw.info.uuid,
                 count: coll.find().itcount()
             };
@@ -108,7 +108,7 @@ class DataConsistencyChecker {
         const primarySession = primary.getDB('test').getSession();
         const secondarySession = secondary.getDB('test').getSession();
         const diff =
-            rst.getCollectionDiffUsingSessions(primarySession, secondarySession, dbName, collName);
+            rst.getCollectionDiffUsingSessions(primarySession, secondarySession, primaryCollInfos.dbName, collName);
 
         for (let {
                  primary: primaryDoc,
