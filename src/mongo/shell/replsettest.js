@@ -1875,7 +1875,8 @@ var ReplSetTest = function(opts) {
                 // Filter only collections that were retrieved by the dbhash. listCollections
                 // may include non-replicated collections like system.profile.
                 let allCollInfos = primary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
-                const primaryCollInfo = filterCollInfos(allCollInfos, primaryCollections);
+                const primaryReplicatedCollInfos =
+                    filterCollInfos(allCollInfos, primaryCollections);
 
                 dbHashes.slaves.forEach(secondaryDBHash => {
                     assert.commandWorked(secondaryDBHash);
@@ -1890,14 +1891,25 @@ var ReplSetTest = function(opts) {
                             tojson(dbHashes));
                         for (var diffColl of arraySymmetricDifference(primaryCollections,
                                                                       secondaryCollections)) {
-                            DataConsistencyChecker.dumpCollectionDiff(this, primary, secondary, dbName, diffColl);
+                            const primaryCollInfo = new CollInfo(
+                                primary, 'primary', primaryCollections, dbName, diffColl);
+
+                            const secondaryCollInfo = new CollInfo(
+                                secondary, 'secondary', secondaryCollections, dbName, diffColl);
+                            DataConsistencyChecker.dumpCollectionDiff(this,
+                                                                      collectionPrinted,
+                                                                      primaryCollInfo,
+                                                                      secondaryCollInfo,
+                                                                      dbName,
+                                                                      diffColl);
                         }
                         success = false;
                     }
 
                     // Don't call isCapped() here to avoid calling listCollections to avoid
                     // reloading the view catalog.
-                    const nonCappedCollInfos = primaryCollInfo.filter(info => !info.options.capped);
+                    const nonCappedCollInfos =
+                        primaryReplicatedCollInfos.filter(info => !info.options.capped);
                     const nonCappedCollNames = nonCappedCollInfos.map(info => info.name);
                     // Only compare the dbhashes of non-capped collections because capped
                     // collections are not necessarily truncated at the same points
@@ -1909,7 +1921,8 @@ var ReplSetTest = function(opts) {
                                   ', the primary and secondary have a different hash for the' +
                                   ' collection ' + dbName + '.' + collName + ': ' +
                                   tojson(dbHashes));
-                            DataConsistencyChecker.dumpCollectionDiff(this, primary, secondary, dbName, collName);
+                            DataConsistencyChecker.dumpCollectionDiff(
+                                this, primary, secondary, dbName, collName);
                             success = false;
                         }
                     });
@@ -1918,10 +1931,11 @@ var ReplSetTest = function(opts) {
                     // secondaries.
                     allCollInfos =
                         secondary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
-                    const secondaryCollInfo = filterCollInfos(allCollInfos, secondaryCollections);
+                    const secondaryReplicatedCollInfos =
+                        filterCollInfos(allCollInfos, secondaryCollections);
 
-                    secondaryCollInfo.forEach(secondaryInfo => {
-                        primaryCollInfo.forEach(primaryInfo => {
+                    secondaryReplicatedCollInfos.forEach(secondaryInfo => {
+                        primaryReplicatedCollInfos.forEach(primaryInfo => {
                             if (secondaryInfo.name === primaryInfo.name &&
                                 secondaryInfo.type === primaryInfo.type) {
                                 if (ignoreUUIDs) {
@@ -1981,7 +1995,8 @@ var ReplSetTest = function(opts) {
                             print(msgPrefix +
                                   ', the primary and secondary have different stats for the ' +
                                   'collection ' + dbName + '.' + collName);
-                            DataConsistencyChecker.dumpCollectionDiff(this, primary, secondary, dbName, collName);
+                            DataConsistencyChecker.dumpCollectionDiff(
+                                this, primary, secondary, dbName, collName);
                             success = false;
                         }
                     });
