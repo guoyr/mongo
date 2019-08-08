@@ -1973,10 +1973,8 @@ var ReplSetTest = function(opts) {
                             secondary.getDB(dbName).runCommand({collStats: collName});
 
                         if (primaryCollStats.ok !== 1 || secondaryCollStats.ok !== 1) {
-                            printCollectionInfo(
-                                'primary', primary, dbName, collName, primaryCollInfo);
-                            printCollectionInfo(
-                                'secondary', secondary, dbName, collName, secondaryCollInfo);
+                            primaryCollInfos.print(collectionPrinted, collName);
+                            secondaryCollInfos.print(collectionPrinted, collName);
                             success = false;
                         } else if (primaryCollStats.capped !== secondaryCollStats.capped ||
                                    (hasSecondaryIndexes &&
