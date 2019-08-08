@@ -1900,8 +1900,7 @@ var ReplSetTest = function(opts) {
                         success = false;
                     }
 
-                    const nonCappedCollInfos = primaryCollInfos.getNonCappedCollInfos();
-                    const nonCappedCollNames = nonCappedCollInfos.map(info => info.name);
+                    const nonCappedCollNames = primaryCollInfos.getNonCappedCollNames();
                     // Only compare the dbhashes of non-capped collections because capped
                     // collections are not necessarily truncated at the same points
                     // across replica set members.

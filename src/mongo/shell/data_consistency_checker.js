@@ -29,8 +29,9 @@ class CollInfos {
      *
      * Don't call isCapped(), which calls listCollections.
      */
-    getNonCappedCollInfos() {
-        return this.collInfoRes.filter(info => !info.options.capped);
+    getNonCappedCollNames() {
+        const infos = this.collInfoRes.filter(info => !info.options.capped);
+        return infos.map(info => info.name);
     }
 
     hostAndNS(collName) {
