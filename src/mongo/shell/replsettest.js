@@ -1878,8 +1878,7 @@ var ReplSetTest = function(opts) {
                     var secondaryCollections = Object.keys(secondaryDBHash.collections);
                     // Check that collection information is consistent on the primary and
                     // secondaries.
-                    const res =
-                        secondary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
+                    const res = secondary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
                     const secondaryCollInfos = new CollInfos(secondary, 'secondary', res, dbName);
 
                     if (primaryCollections.length !== secondaryCollections.length) {
@@ -1911,8 +1910,12 @@ var ReplSetTest = function(opts) {
                                   ', the primary and secondary have a different hash for the' +
                                   ' collection ' + dbName + '.' + collName + ': ' +
                                   tojson(dbHashes));
-                            DataConsistencyChecker.dumpCollectionDiff(
-                                this, collectionPrinted, primaryCollInfos, secondaryCollInfos, dbName, collName);
+                            DataConsistencyChecker.dumpCollectionDiff(this,
+                                                                      collectionPrinted,
+                                                                      primaryCollInfos,
+                                                                      secondaryCollInfos,
+                                                                      dbName,
+                                                                      collName);
                             success = false;
                         }
                     });
@@ -1944,8 +1947,12 @@ var ReplSetTest = function(opts) {
                                           ', the primary and secondary have different ' +
                                           'attributes for the collection or view ' + dbName + '.' +
                                           secondaryInfo.name);
-                                    DataConsistencyChecker.dumpCollectionDiff(
-                                        this, collectionPrinted, primaryCollInfos, secondaryCollInfos, dbName, secondaryInfo.name);
+                                    DataConsistencyChecker.dumpCollectionDiff(this,
+                                                                              collectionPrinted,
+                                                                              primaryCollInfos,
+                                                                              secondaryCollInfos,
+                                                                              dbName,
+                                                                              secondaryInfo.name);
                                     success = false;
                                 }
                             }
@@ -1978,8 +1985,12 @@ var ReplSetTest = function(opts) {
                             print(msgPrefix +
                                   ', the primary and secondary have different stats for the ' +
                                   'collection ' + dbName + '.' + collName);
-                            DataConsistencyChecker.dumpCollectionDiff(
-                                this, collectionPrinted, primaryCollInfos, secondaryCollInfos, dbName, collName);
+                            DataConsistencyChecker.dumpCollectionDiff(this,
+                                                                      collectionPrinted,
+                                                                      primaryCollInfos,
+                                                                      secondaryCollInfos,
+                                                                      dbName,
+                                                                      collName);
                             success = false;
                         }
                     });

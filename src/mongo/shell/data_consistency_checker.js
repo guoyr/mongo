@@ -4,7 +4,7 @@ class CollInfos {
      * This class stores information about all collections but its methods typically apply to a
      * single collection, so a collName is typically required to be passed in as a parameter.
      */
-    constructor(conn, connName, collInfosRes,  dbName) {
+    constructor(conn, connName, collInfosRes, dbName) {
         assert.eq(Array.isArray(collInfosRes), true, 'collInfosRes must be an array or omitted');
 
         this.conn = conn;
