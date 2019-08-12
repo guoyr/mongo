@@ -107,8 +107,8 @@ class DataConsistencyChecker {
 
         const primarySession = primary.getDB('test').getSession();
         const secondarySession = secondary.getDB('test').getSession();
-        const diff =
-            rst.getCollectionDiffUsingSessions(primarySession, secondarySession, primaryCollInfos.dbName, collName);
+        const diff = rst.getCollectionDiffUsingSessions(
+            primarySession, secondarySession, primaryCollInfos.dbName, collName);
 
         for (let {
                  primary: primaryDoc,
