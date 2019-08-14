@@ -1844,14 +1844,6 @@ var ReplSetTest = function(opts) {
             var combinedDBs = new Set(primary.getDBNames());
             const replSetConfig = rst.getReplSetConfigFromNode();
 
-            // Special listCollections filter to prevent reloading the view catalog.
-            const listCollectionsFilter = {
-                $or: [
-                    {type: 'collection'},
-                    {type: {$exists: false}},
-                ]
-            };
-
             slaves.forEach(secondary => {
                 secondary.getDBNames().forEach(dbName => combinedDBs.add(dbName));
             });
@@ -1868,8 +1860,7 @@ var ReplSetTest = function(opts) {
 
                 // Filter only collections that were retrieved by the dbhash. listCollections
                 // may include non-replicated collections like system.profile.
-                let res = primary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
-                const primaryCollInfos = new CollInfos(primary, 'primary', res, dbName);
+                const primaryCollInfos = new CollInfos(primary, 'primary', dbName);
                 primaryCollInfos.filter(primaryCollections);
 
                 dbHashes.slaves.forEach(secondaryDBHash => {
@@ -1879,8 +1870,7 @@ var ReplSetTest = function(opts) {
                     var secondaryCollections = Object.keys(secondaryDBHash.collections);
                     // Check that collection information is consistent on the primary and
                     // secondaries.
-                    const res = secondary.getDB(dbName).getCollectionInfos(listCollectionsFilter);
-                    const secondaryCollInfos = new CollInfos(secondary, 'secondary', res, dbName);
+                    const secondaryCollInfos = new CollInfos(secondary, 'secondary', dbName);
                     secondaryCollInfos.filter(secondaryCollections);
 
                     if (primaryCollections.length !== secondaryCollections.length) {

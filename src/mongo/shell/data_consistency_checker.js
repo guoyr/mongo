@@ -1,16 +1,21 @@
-class CollInfos {
+var CollInfos = class {
     /**
      * OO wrapper around the response of db.getCollectionInfos() to avoid calling it multiple times.
      * This class stores information about all collections but its methods typically apply to a
      * single collection, so a collName is typically required to be passed in as a parameter.
      */
-    constructor(conn, connName, collInfosRes, dbName) {
-        assert.eq(Array.isArray(collInfosRes), true, 'collInfosRes must be an array or omitted');
-
+    constructor(conn, connName, dbName) {
+        // Special listCollections filter to prevent reloading the view catalog.
+        const listCollectionsFilter = {
+            $or: [
+                {type: 'collection'},
+                {type: {$exists: false}},
+            ]
+        };
         this.conn = conn;
         this.connName = connName;
-        this.collInfosRes = collInfosRes;
         this.dbName = dbName;
+        this.collInfosRes = conn.getDB(dbName).getCollectionInfos(listCollectionsFilter);
     }
 
     ns(collName) {
@@ -88,7 +93,7 @@ class CollInfos {
     }
 }
 
-class DataConsistencyChecker {
+var DataConsistencyChecker = class {
     static dumpCollectionDiff(
         rst, collectionPrinted, primaryCollInfos, secondaryCollInfos, collName) {
         print('Dumping collection: ' + primaryCollInfos.ns(collName));
