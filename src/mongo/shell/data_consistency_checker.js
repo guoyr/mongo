@@ -73,7 +73,7 @@ var CollInfos = class {
             print(infoPrefix + 'collection does not exist');
         }
 
-        const collStats = conn.getDB(this.dbName).runCommand({collStats: collName});
+        const collStats = this.conn.getDB(this.dbName).runCommand({collStats: collName});
         const statsPrefix = `${this.connName}(${this.conn.host}) collStats for ${ns}: `;
         if (collStats.ok === 1) {
             if (alreadyPrinted) {
