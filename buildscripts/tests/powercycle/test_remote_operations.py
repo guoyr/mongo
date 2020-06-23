@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit test for buildscripts/remote_operations.py.
+"""Unit test for buildscripts/powercycle/remote_operations.py.
 
    Note - Tests require sshd to be enabled on localhost with paswordless login
    and can fail otherwise."""
@@ -10,7 +10,7 @@ import tempfile
 import time
 import unittest
 
-from buildscripts import remote_operations as rop
+from buildscripts.powercycle import remote_operations as rop
 
 # pylint: disable=invalid-name,missing-docstring,protected-access
 
