@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Remote access utilities, via ssh & scp."""
 
+import argparse
 import optparse
 import os
 import posixpath
