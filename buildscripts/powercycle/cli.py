@@ -10,5 +10,5 @@ def main(argv):
     :param argv: sys.argv
     :return: None
     """
-    subcommand = parser.parse_command_line(argv[1])
+    subcommand = parser.parse_command_line(argv[1:])
     subcommand.execute()

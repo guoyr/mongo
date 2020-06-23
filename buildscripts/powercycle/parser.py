@@ -4,6 +4,7 @@ import argparse
 
 _PLUGINS = []
 
+
 def _add_subcommands():
     """Create and return the command line arguments parser."""
     parser = argparse.ArgumentParser()
@@ -31,7 +32,7 @@ def parse(sys_args):
     parser = _add_subcommands()
     parsed_args = parser.parse_args(sys_args)
 
-    return (parser, parsed_args)
+    return parser, parsed_args
 
 
 def parse_command_line(sys_args, **kwargs):
@@ -46,8 +47,3 @@ def parse_command_line(sys_args, **kwargs):
             return subcommand_obj
 
     raise RuntimeError(f"Resmoke configuration has invalid subcommand: {subcommand}. Try '--help'")
-
-
-def main():  # pylint: disable=too-many-branches,too-many-statements
-    """Execute Main program."""
-    parse_command_line(argv[1:])

@@ -2387,6 +2387,18 @@ functions:
         ignore_missing_file: true
         file: src/ec2_artifacts.yml
 
+    - command: expansions.write
+      params:
+        ignore_missing_file: true
+        file: src/expansions.yml
+
+    - command: shell.exec
+      type: test
+      params:
+        shell: bash
+        script: |
+          cat src/expansions.yml
+
     - command: shell.exec
       type: test
       params:

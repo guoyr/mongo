@@ -351,7 +351,3 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
         print(buff)
 
     sys.exit(ret_code)
-
-
-if __name__ == "__main__":
-    main()
