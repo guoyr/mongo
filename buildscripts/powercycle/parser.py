@@ -2,7 +2,11 @@
 
 import argparse
 
-_PLUGINS = []
+import buildscripts.powercycle.plugins as plugins
+
+_PLUGINS = [
+    plugins.SetUpEC2InstancePlugin()
+]
 
 
 def _add_subcommands():
@@ -21,8 +25,8 @@ def _add_subcommands():
 def _add_global_arg(parser):
     """Add arguments that are global to "remote_operations.py."""
     parser.add_argument(
-        "--expansions-file", dest="expansions_file", metavar="PATH",
-        help=("The path of the expansions file generated for this task."))
+        "--expansions-file", dest="expansions_file", metavar="PATH", required=True,
+        help="The path of the expansions file generated for this task.")
 
 
 def parse(sys_args):

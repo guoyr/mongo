@@ -2647,6 +2647,10 @@ functions:
       params:
         file: src/${aws_ec2_yml}
 
+    - command: expansions.write
+      params:
+        file: src/expansions.yml
+
     - command: shell.exec
       params:
         shell: bash
