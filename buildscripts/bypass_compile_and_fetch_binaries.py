@@ -468,7 +468,8 @@ def main(  # pylint: disable=too-many-arguments,too-many-locals,too-many-stateme
     target = TargetBuild(project=project, build_variant=build_variant, revision=revision)
 
     # Determine if we should bypass compile based on modified patch files.
-    if should_bypass_compile(patch_file, build_variant):
+    # if should_bypass_compile(patch_file, build_variant):
+    if True:
         evg_api = RetryingEvergreenApi.get_api(config_file=EVG_CONFIG_FILE)
         build = find_build_for_previous_compile_task(evg_api, target)
         if not build:
