@@ -2579,11 +2579,20 @@ functions:
         done
 
   "set up EC2 instance": &set_up_ec2_instance
+    - command: expansions.write
+      params:
+        file: src/expansions.yml
+
+    - command: shell.exec
+      params:
+        script: |
+          cat src/expansions.yml
+
     - command: host.create
       params:
         provider: ec2
         distro: ${distro_id}
-        key_name: ${key_name}
+        key_name: ${ssh_key_id}
         security_group_ids:
         - sg-097bff6dd0d1d31d0
 
@@ -2597,12 +2606,16 @@ functions:
     - command: shell.exec
       params:
         script: |
-          user=${admin_user_name}
+          user=$USER
           hostname=$(tr -d '"[]{}' < src/hosts.yml | cut -d , -f 1 | awk -F : '{print $2}')
-          identity_file=~/.ssh/mcipacker.pem
+          identity_file=${ssh_identity}
 
           # compat with old aws_ec2.yml file
           echo "private_ip_address: $hostname" >> src/${aws_ec2_yml}
+
+          echo $hostname
+          echo $user
+          echo $identity_file
 
           attempts=0
           connection_attempts=${connection_attempts|25}

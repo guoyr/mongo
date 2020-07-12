@@ -1,0 +1,3 @@
+powercycle_public_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCYzPNWO+Dg4DGgGsl/ba9zDIl83mtAWqha5tt+llAlGLtNcrnkncGcp/NP7lcwUkj01fIM7SRATklzx8JqeU4rErAModjhrpB0lAxZZsg8WfIeI1nI6Fu2ctu1IxC/wNhPN7syS0iniSUuYaP/tIFFBr5dA4W1ERR/2Rx7629pTXLnnVHjANbTu/NmEDZvXck5UZteuL+Y65wiwpmcx4+Keyj6Tn2DJ5w0NBAmFxsz8X0Ds+URtmTsxTNwMx1Ik5jXvF7xRH7CAtYoc1wGTZkZKvXkq55+WaXJ0ONmg6wpz0/hHtO5XQb2ahZfxNT31mK1MBAjpjI48/9XWOYnSUdz"
+echo $powercycle_public_key >> /home/ubuntu/.ssh/authorized_keys
+echo $powercycle_public_key >> /home/mci-user/.ssh/authorized_keys
