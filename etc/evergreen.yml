@@ -2592,7 +2592,6 @@ functions:
       params:
         provider: ec2
         distro: ${distro_id}
-        key_name: ${ssh_key_id}
         security_group_ids:
         - sg-097bff6dd0d1d31d0
 
@@ -2606,9 +2605,13 @@ functions:
     - command: shell.exec
       params:
         script: |
+
+          identity_file=${private_key_file}
+          echo "${__project_aws_ssh_key_value}" > "$identity_file"
+          chmod 0600 "$identity_file"
+
           user=$USER
           hostname=$(tr -d '"[]{}' < src/hosts.yml | cut -d , -f 1 | awk -F : '{print $2}')
-          identity_file=${ssh_identity}
 
           # compat with old aws_ec2.yml file
           echo "private_ip_address: $hostname" >> src/${aws_ec2_yml}

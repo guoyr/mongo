@@ -805,6 +805,9 @@ class WindowsService(object):
     def __init__(self, name, bin_path, bin_options, db_path):
         """Initialize WindowsService."""
 
+        print("bin_options and bin_path")
+        print(bin_options, bin_path)
+
         self.name = name
         self.bin_name = os.path.basename(bin_path)
         self.bin_path = bin_path
@@ -831,7 +834,7 @@ class WindowsService(object):
                 self.name), serviceName=self.name, displayName=self.name, startType=self.start_type,
                                             exeName=self.bin_path, exeArgs=self.bin_options)
             ret = 0
-            output = "Service '{}' created".format(self.name)
+            output = "Service '{}' created with options {}".format(self.name, self.bin_options)
         except pywintypes.error as err:
             ret = err.winerror
             output = f"{err.args[1]}: {err.args[2]}"
@@ -1032,14 +1035,12 @@ class MongodControl(object):  # pylint: disable=too-many-instance-attributes
         self.set_mongod_option("logpath", log_path)
         self.set_mongod_option("logappend")
         self.port = port
+        print("mongod port", port)
         self.set_mongod_option("port", port)
         self.set_mongod_option("bind_ip", "0.0.0.0")
-        if _IS_WINDOWS:
-            self.set_mongod_option("service")
-            self._service = WindowsService
-        else:
-            self.set_mongod_option("fork")
-            self._service = PosixService
+        # if _IS_WINDOWS:
+        self.set_mongod_option("service")
+        self._service = WindowsService
         # After mongod has been installed, self.bin_path is defined.
         if self.bin_path:
             self.service = self._service("mongod-powertest", self.bin_path, self.mongod_options(),
@@ -1069,6 +1070,10 @@ class MongodControl(object):  # pylint: disable=too-many-instance-attributes
 
     def install(self, root_dir, tarball_url):
         """Return tuple (ret, ouput)."""
+        self.service = self._service("mongod-powertest", self.bin_path, self.mongod_options(),
+                                     db_path=None)
+        # ret, output = self.service.delete()
+        # ret, output = self.service.create()
         # Install mongod, if 'root_dir' does not exist.
         if os.path.isdir(root_dir):
             LOGGER.warning("Root dir %s already exists", root_dir)
@@ -1082,9 +1087,7 @@ class MongodControl(object):  # pylint: disable=too-many-instance-attributes
         self.bin_path = os.path.join(self.bin_dir, self.process_name)
         # We need to instantiate the Service when installing, since the bin_path
         # is only known after install_mongod runs.
-        self.service = self._service("mongod-powertest", self.bin_path, self.mongod_options(),
-                                     db_path=None)
-        ret, output = self.service.create()
+
         return ret, output
 
     def uninstall(self):
@@ -1297,7 +1300,7 @@ def remote_handler(options, operations):  # pylint: disable=too-many-branches,to
             # Rename the rsync_dir only if it has a different name than new_rsync_dir.
             if ret == 0 and rsync_dir != new_rsync_dir:
                 LOGGER.info("Renaming directory %s to %s", rsync_dir, new_rsync_dir)
-                os.rename(rsync_dir, new_rsync_dir)
+                # os.rename(rsync_dir, new_rsync_dir)
 
         elif operation == "seed_docs":
             mongo = pymongo.MongoClient(**mongo_client_opts)
@@ -2209,8 +2212,9 @@ Examples:
     if options.ssh_user_host is None and not options.remote_operation:
         parser.error("Missing required argument --sshUserHost")
 
-    secret_port = options.usable_ports[1]
+    secret_port = options.usable_ports[0]
     standard_port = options.usable_ports[0]
+    print("ports", secret_port, standard_port)
 
     seed_docs = "seed_docs" if options.seed_doc_num else ""
 

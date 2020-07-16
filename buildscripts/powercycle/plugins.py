@@ -42,6 +42,7 @@ class PowercycleCommand(Subcommand):  # pylint: disable=abstract-method, too-man
     @staticmethod
     def is_windows() -> bool:
         """:return: True if running on Windows."""
+        return True
         return sys.platform == "win32" or sys.platform == "cygwin"
 
     @staticmethod
@@ -73,39 +74,39 @@ class SetUpEC2Instance(PowercycleCommand):
 
     def execute(self) -> None:  # pylint: disable=too-many-instance-attributes, too-many-locals, too-many-statements
         """:return: None."""
-        # First operation -
-        # Copy mount_drives.sh script to remote host.
-        # last arg is "operation_dir", which for the COPY_TO action, is the remote
-        # directory. We just have it default to the home directory instead of setting
-        # one explicitly.
-        self.remote_op.operation(SSHOperation.COPY_TO, 'buildscripts/mount_drives.sh', None)
-
-        # Second operation -
-        # Mount /data on the attached drive(s), more than 1 indicates a RAID set.
-        script_opts = f"-d '{self.expansions['data_device_names']}'"
-        if "raid_data_device_name" in self.expansions:
-            script_opts = f"{script_opts} -r {self.expansions['raid_data_device_name']}"
-        if "fstype" in self.expansions:
-            script_opts = f"{script_opts} -t {self.expansions['fstype']}"
-        if "fs_options" in self.expansions:
-            script_opts = f"{script_opts} -o '{self.expansions['fs_options']}'"
-        script_opts = f"{script_opts} -l '{self.expansions['log_device_name']}'"
-
-        log = "/log"
+        # # First operation -
+        # # Copy mount_drives.sh script to remote host.
+        # # last arg is "operation_dir", which for the COPY_TO action, is the remote
+        # # directory. We just have it default to the home directory instead of setting
+        # # one explicitly.
+        # self.remote_op.operation(SSHOperation.COPY_TO, 'buildscripts/mount_drives.sh', None)
+        #
+        # # Second operation -
+        # # Mount /data on the attached drive(s), more than 1 indicates a RAID set.
+        # script_opts = f"-d '{self.expansions['data_device_names']}'"
+        # if "raid_data_device_name" in self.expansions:
+        #     script_opts = f"{script_opts} -r {self.expansions['raid_data_device_name']}"
+        # if "fstype" in self.expansions:
+        #     script_opts = f"{script_opts} -t {self.expansions['fstype']}"
+        # if "fs_options" in self.expansions:
+        #     script_opts = f"{script_opts} -o '{self.expansions['fs_options']}'"
+        # script_opts = f"{script_opts} -l '{self.expansions['log_device_name']}'"
+        #
+        # log = "/log"
         group_cmd = f"id -Gn {self.user}"
         _, group = self._call(group_cmd)
         group = group.split(" ")[0]
         user_group = f"{self.user}:{group}"
-        script_opts = f"{script_opts} -u {user_group}"
-        data_db = "/data/db"
-        cmds = f"{self.sudo} bash mount_drives.sh {script_opts}; mount; ls -ld {data_db} {log}; df"
-        self.remote_op.operation(SSHOperation.SHELL, cmds, None)
+        # script_opts = f"{script_opts} -u {user_group}"
+        # data_db = "/data/db"
+        # cmds = f"{self.sudo} bash mount_drives.sh {script_opts}; mount; ls -ld {data_db} {log}; df"
+        # self.remote_op.operation(SSHOperation.SHELL, cmds, None)
 
         # Third operation -
         # Create remote_dir, if not '.' (pwd).
-        if 'remote_dir' not in self.expansions:
-            raise ValueError("The 'remote_dir' expansion must be set.")
-
+        # if 'remote_dir' not in self.expansions:
+        #     raise ValueError("The 'remote_dir' expansion must be set.")
+        #
         remote_dir = self.expansions['remote_dir']
         if self.expansions['remote_dir'] != ".":
             set_permission = f"chmod 777 {self.expansions['remote_dir']}"
@@ -121,7 +122,7 @@ class SetUpEC2Instance(PowercycleCommand):
         for executable in mongo_executables:
             files.append(f"dist-test/bin/{executable}{self.exe}")
 
-        self.remote_op.operation(SSHOperation.COPY_TO, files, remote_dir)
+        # self.remote_op.operation(SSHOperation.COPY_TO, files, remote_dir)
 
         # Fifth operation -
         # Set up virtualenv on remote.
@@ -130,15 +131,15 @@ class SetUpEC2Instance(PowercycleCommand):
         python = "/opt/mongodbtoolchain/v3/bin/python3" if "python" not in self.expansions else self.expansions[
             "python"]
 
-        cmds = f"python_loc=$(which {python})"
-        cmds = f"{cmds}; remote_dir={remote_dir}"
-        cmds = f"{cmds}; if [ 'Windows_NT' = '$OS' ]; then python_loc=$(cygpath -w $python_loc); remote_dir=$(cygpath -w $remote_dir); fi"
-        cmds = f"{cmds}; virtualenv --python $python_loc --system-site-packages {venv}"
-        cmds = f"{cmds}; activate=$(find {venv} -name 'activate')"
-        cmds = f"{cmds}; . $activate"
-        cmds = f"{cmds}; pip3 install -r $remote_dir/etc/pip/powercycle-requirements.txt"
+        # cmds = f"python_loc=$(which {python})"
+        cmds = f"remote_dir={remote_dir}"
+        # cmds = f"{cmds}; if [ 'Windows_NT' = '$OS' ]; then python_loc=$(cygpath -w $python_loc); remote_dir=$(cygpath -w $remote_dir); fi"
+        # cmds = f"{cmds}; virtualenv --python $python_loc --system-site-packages {venv}"
+        # cmds = f"{cmds}; activate=$(find {venv} -name 'activate')"
+        # cmds = f"{cmds}; . $activate"
+        # cmds = f"{cmds}; pip3 install -r $remote_dir/etc/pip/powercycle-requirements.txt"
 
-        self.remote_op.operation(SSHOperation.SHELL, cmds, None)
+        # self.remote_op.operation(SSHOperation.SHELL, cmds, None)
 
         # Sixth operation -
         # Enable core dumps on non-Windows remote hosts.
@@ -181,15 +182,15 @@ class SetUpEC2Instance(PowercycleCommand):
 
         # Eighth operation -
         # Set up curator to collect system & process stats on remote.
-        variant = "windows" if self.is_windows() else "ubuntu1604"
-        curator_hash = "117d1a65256ff78b6d15ab79a1c7088443b936d0"
+        variant = "windows-64" if self.is_windows() else "ubuntu1604"
+        curator_hash = "b900876905354bd6e3a60594cfaf47935fef0877"
         curator_url = f"https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-{variant}-{curator_hash}.tar.gz"
-        cmds = f"curl -s {curator_url} | tar -xzv"
+        # cmds = f"curl -s {curator_url} | tar -xzv"
         monitor_system_file = self.expansions["monitor_system_file"]
         monitor_proc_file = self.expansions["monitor_proc_file"]
         if self.is_windows():
             # Since curator runs as SYSTEM user, ensure the output files can be accessed.
-            cmds = f"{cmds}; touch {monitor_system_file}; chmod 777 {monitor_system_file}"
+            cmds = f"touch {monitor_system_file}; chmod 777 {monitor_system_file}"
             cmds = f"{cmds}; cygrunsrv --install curator_sys --path curator --chdir $HOME --args 'stat system --file {monitor_system_file}'"
             cmds = f"{cmds}; touch {monitor_proc_file}; chmod 777 {monitor_proc_file}"
             cmds = f"{cmds}; cygrunsrv --install curator_proc --path curator --chdir $HOME --args 'stat process-all --file {monitor_proc_file}'"
@@ -212,46 +213,49 @@ class SetUpEC2Instance(PowercycleCommand):
             standard_port = self.expansions["standard_port"]
             secret_port = self.expansions["secret_port"]
             # RHEL 7 firewall rules
-            firewall_cmd = self._call("which firewall-cmd")
-            if firewall_cmd[1] and "no firewall-cmd in" not in firewall_cmd[1]:
-                cmds = f"{self.sudo} firewall-cmd --permanent --zone=public --add-port=ssh/tcp"
-                cmds = f"{cmds}; {self.sudo} firewall-cmd --permanent --zone=public --add-port={standard_port}/tcp"
-                cmds = f"{cmds}; {self.sudo} firewall-cmd --permanent --zone=public --add-port={secret_port}/tcp"
-                cmds = f"{cmds}; {self.sudo} firewall-cmd --reload"
-                cmds = f"{cmds}; {self.sudo} firewall-cmd --list-all"
-            elif self._call(f"{self.sudo} iptables --list")[1]:
-                cmds = f"{self.sudo} iptables -I INPUT 1 -p tcp --dport ssh -j ACCEPT"
-                cmds = f"{cmds}; {self.sudo} iptables -I INPUT 1 -p tcp --dport {standard_port} -j ACCEPT"
-                cmds = f"{cmds}; {self.sudo} iptables -I INPUT 1 -p tcp --dport {secret_port} -j ACCEPT"
-                if os.path.exists("/etc/iptables") and os.path.isdir("/etc/iptables"):
-                    rules_file = "/etc/iptables/iptables.rules"
-                elif os.path.exists("/etc/sysconfig/iptables") and os.path.isfile(
-                        "/etc/sysconfig/iptables"):
-                    rules_file = "/etc/sysconfig/iptables"
-                else:
-                    rules_file = "/etc/iptables.up.rules"
-                cmds = f"{cmds}; {self.sudo} iptables-save | {self.sudo} tee {rules_file}"
-                cmds = f"{cmds}; {self.sudo} iptables --list-rules"
-            elif self._call(f"{self.sudo} service iptables status")[1]:
-                cmds = f"{self.sudo} iptables -I INPUT 1 -p tcp --dport ssh -j ACCEPT"
-                cmds = f"{cmds}; {self.sudo} iptables -I INPUT 1 -p tcp --dport {standard_port} -j ACCEPT"
-                cmds = f"{cmds}; {self.sudo} iptables -I INPUT 1 -p tcp --dport {secret_port} -j ACCEPT"
-                cmds = f"{cmds}; {self.sudo} service iptables save"
-                cmds = f"{cmds}; {self.sudo} service iptables status"
-            # Ubuntu firewall rules
-            elif self._call(f"{self.sudo} ufw status")[1]:
-                cmds = f"{self.sudo} ufw allow ssh/tcp"
-                cmds = f"{cmds}; {self.sudo} ufw allow {standard_port}/tcp"
-                cmds = f"{cmds}; {self.sudo} ufw allow {secret_port}/tcp"
-                cmds = f"{cmds}; {self.sudo} ufw reload"
-                cmds = f"{cmds}; {self.sudo} ufw status"
-            # SuSE firewall rules
-            # TODO: Add firewall rules using SuSEfirewall2
-            elif self._call(f"{self.sudo} /sbin/SuSEfirewall2 help")[1]:
-                cmds = f"{self.sudo} /sbin/SuSEfirewall2 stop"
-                cmds = f"{cmds}; {self.sudo} /sbin/SuSEfirewall2 off"
+            # firewall_cmd = self._call("which firewall-cmd")
+            # iptables_cmd = self._call("which iptables")
+            # service_cmd = self._call("which service")
+            # if firewall_cmd[1] and "no firewall-cmd in" not in firewall_cmd[1]:
+            #     cmds = f"{self.sudo} firewall-cmd --permanent --zone=public --add-port=ssh/tcp"
+            #     cmds = f"{cmds}; {self.sudo} firewall-cmd --permanent --zone=public --add-port={standard_port}/tcp"
+            #     cmds = f"{cmds}; {self.sudo} firewall-cmd --permanent --zone=public --add-port={secret_port}/tcp"
+            #     cmds = f"{cmds}; {self.sudo} firewall-cmd --reload"
+            #     cmds = f"{cmds}; {self.sudo} firewall-cmd --list-all"
+            # elif self._call(f"{self.sudo} iptables --list")[1]:
+            #     cmds = f"{self.sudo} iptables -I INPUT 1 -p tcp --dport ssh -j ACCEPT"
+            #     cmds = f"{cmds}; {self.sudo} iptables -I INPUT 1 -p tcp --dport {standard_port} -j ACCEPT"
+            #     cmds = f"{cmds}; {self.sudo} iptables -I INPUT 1 -p tcp --dport {secret_port} -j ACCEPT"
+            #     if os.path.exists("/etc/iptables") and os.path.isdir("/etc/iptables"):
+            #         rules_file = "/etc/iptables/iptables.rules"
+            #     elif os.path.exists("/etc/sysconfig/iptables") and os.path.isfile(
+            #             "/etc/sysconfig/iptables"):
+            #         rules_file = "/etc/sysconfig/iptables"
+            #     else:
+            #         rules_file = "/etc/iptables.up.rules"
+            #     cmds = f"{cmds}; {self.sudo} iptables-save | {self.sudo} tee {rules_file}"
+            #     cmds = f"{cmds}; {self.sudo} iptables --list-rules"
+            # elif self._call(f"{self.sudo} service iptables status")[1]:
+            #     cmds = f"{self.sudo} iptables -I INPUT 1 -p tcp --dport ssh -j ACCEPT"
+            #     cmds = f"{cmds}; {self.sudo} iptables -I INPUT 1 -p tcp --dport {standard_port} -j ACCEPT"
+            #     cmds = f"{cmds}; {self.sudo} iptables -I INPUT 1 -p tcp --dport {secret_port} -j ACCEPT"
+            #     cmds = f"{cmds}; {self.sudo} service iptables save"
+            #     cmds = f"{cmds}; {self.sudo} service iptables status"
+            # # Ubuntu firewall rules
+            # elif self._call(f"{self.sudo} ufw status")[1]:
+            #     cmds = f"{self.sudo} ufw allow ssh/tcp"
+            #     cmds = f"{cmds}; {self.sudo} ufw allow {standard_port}/tcp"
+            #     cmds = f"{cmds}; {self.sudo} ufw allow {secret_port}/tcp"
+            #     cmds = f"{cmds}; {self.sudo} ufw reload"
+            #     cmds = f"{cmds}; {self.sudo} ufw status"
+            # # SuSE firewall rules
+            # # TODO: Add firewall rules using SuSEfirewall2
+            # elif self._call(f"{self.sudo} /sbin/SuSEfirewall2 help")[1]:
+            #     cmds = f"{self.sudo} /sbin/SuSEfirewall2 stop"
+            #     cmds = f"{cmds}; {self.sudo} /sbin/SuSEfirewall2 off"
             # Windows firewall rules
-            elif self._call(f"netsh advfirewall show store")[1]:
+            # if self._call(f"netsh advfirewall show store")[1]:
+            if True:
                 add_rule = "netsh advfirewall firewall add rule"
                 cmds = f"{add_rule} name='MongoDB port {standard_port} in' dir=in action=allow protocol=TCP localport={standard_port}"
                 cmds = f"{cmds}; {add_rule} name='MongoDB port {standard_port} out' dir=in action=allow protocol=TCP localport={standard_port}"
