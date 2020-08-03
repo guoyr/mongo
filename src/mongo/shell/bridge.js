@@ -7,6 +7,7 @@
  * @param {string} [options.hostName=localhost] - The hostname to specify when connecting to the
  * mongobridge process.
  * @param {number} [options.port=allocatePort()] - The port number the mongobridge should listen on.
+ * @param {boolean} [options.connectExistingBridge=false] - Whether to connect to a running mongobridge binary.
  *
  * @returns {Proxy} Acts as a typical connection object to options.hostName:options.port that has
  * additional functions exposed to shape network traffic from other processes.
@@ -27,6 +28,7 @@ function MongoBridge(options) {
 
     this.dest = options.dest;
     this.port = options.port || allocatePort();
+    this.connectExistingBridge = options.connectExistingBridge;
 
     // The connection used by a test for running commands against the mongod or mongos process.
     var userConn;
@@ -42,25 +44,29 @@ function MongoBridge(options) {
         'port',
     ];
 
-    // Append any command line arguments that are optional for mongobridge.
-    Object.keys(options).forEach(function(key) {
-        if (Array.contains(keysToSkip, key)) {
-            return;
-        }
+    var pid = null;
 
-        var value = options[key];
-        if (value === null || value === undefined) {
-            throw new Error("Value '" + value + "' for '" + key + "' option is ambiguous; specify" +
-                            " {flag: ''} to add --flag command line options'");
-        }
+    if (!this.connectExistingBridge) {
+       // Append any command line arguments that are optional for mongobridge.
+       Object.keys(options).forEach(function(key) {
+           if (Array.contains(keysToSkip, key)) {
+               return;
+           }
 
-        args.push('--' + key);
-        if (value !== '') {
-            args.push(value.toString());
-        }
-    });
+           var value = options[key];
+           if (value === null || value === undefined) {
+               throw new Error("Value '" + value + "' for '" + key + "' option is ambiguous; specify" +
+                               " {flag: ''} to add --flag command line options'");
+           }
 
-    var pid = _startMongoProgram.apply(null, args);
+           args.push('--' + key);
+           if (value !== '') {
+               args.push(value.toString());
+           }
+       });
+
+       pid = _startMongoProgram.apply(null, args);
+    }
 
     /**
      * Initializes the mongo shell's connections to the mongobridge process. Throws an error if the
@@ -79,13 +85,22 @@ function MongoBridge(options) {
      *     bridge.connectToBridge();
      */
     this.connectToBridge = function connectToBridge() {
-        var failedToStart = false;
-        assert.soon(() => {
-            if (!checkProgram(pid).alive) {
-                failedToStart = true;
-                return true;
-            }
 
+        if (!this.connectExistingBridge) {
+            var failedToStart = false;
+
+            assert.soon(() => {
+                if (!checkProgram(pid).alive) {
+                    failedToStart = true;
+                    return true;
+                }
+            }, 'failed to start mongobridge on port ' + this.port);
+
+            assert(!failedToStart, 'mongobridge failed to start on port ' + this.port);
+        }
+
+
+        assert.soon(() => {
             try {
                 userConn = new Mongo(hostName + ':' + this.port);
             } catch (e) {
@@ -93,7 +108,6 @@ function MongoBridge(options) {
             }
             return true;
         }, 'failed to connect to the mongobridge on port ' + this.port);
-        assert(!failedToStart, 'mongobridge failed to start on port ' + this.port);
 
         // The MongoRunner.runMongoXX() functions define a 'name' property on the returned
         // connection object that is equivalent to its 'host' property. Certain functions in
@@ -116,7 +130,11 @@ function MongoBridge(options) {
      * Terminates the mongobridge process.
      */
     this.stop = function stop() {
-        return _stopMongoProgram(this.port);
+        if (this.connectExistingBridge) {
+            print('Connected to an existing MongoBridge, skipping stop()')
+        } else {
+            return _stopMongoProgram(this.port);
+        }
     };
 
     // Throws an error if 'obj' is not a MongoBridge instance.
