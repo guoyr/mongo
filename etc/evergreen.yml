@@ -3270,6 +3270,17 @@ tasks:
         content_type: application/gzip
         display_name: Binaries
 
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -o errexit
+          set -o verbose
+          ${activate_virtualenv}
+          $python buildscripts/idl/gen_disabled_feature_flag_list.py --include src --include src/mongo/db/modules/enterprise/src
+
     - command: archive.targz_pack
       params:
         target: "artifacts.tgz"
@@ -3283,6 +3294,7 @@ tasks:
           - "artifacts.json"
           - "buildscripts/**"
           - "compile_expansions.yml"
+          - "all_feature_flags.txt"  # Must correspond to the definition in buildscripts/idl/lib.py.
           - "jstests/**"
           - "library_dependency_graph.json"
           - "patch_files.txt"
@@ -10307,27 +10319,7 @@ buildvariants:
     max_sub_suites: 5
     large_distro_name: rhel80-medium
     num_scons_link_jobs_available: 0.99
-    test_flags: >-
-        --mongodSetParameters="{
-            featureFlagToaster: true,
-            featureFlagSpoon: true,
-            featureFlagAuthorizationContract: true,
-            featureFlagTenantMigrations: true,
-            featureFlagImprovedAuditing: true,
-            featureFlagRuntimeAuditConfig: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagShardingFullDDLSupport: true,
-            featureFlagShardingFullDDLSupportTimestampedVersion: true,
-            featureFlagWindowFunctions: true,
-            featureFlagUseSecondaryDelaySecs: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
-        --mongosSetParameters="{
-            featureFlagImprovedAuditing: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagWindowFunctions: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
+    test_flags: --runDisabledFeatureFlagTests
   tasks:
   - name: compile_test_and_package_parallel_core_stream_TG
     distros:
