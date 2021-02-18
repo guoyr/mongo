@@ -69,7 +69,7 @@ class TestIDLCompatibilityChecker(unittest.TestCase):
             path.join(dir_path, "compatibility_test_fail/new"), ["src"])
 
         self.assertTrue(error_collection.has_errors())
-        self.assertTrue(error_collection.count() == 34)
+        self.assertTrue(error_collection.count() == 44)
 
         invalid_api_version_new_error = error_collection.get_error_by_command_name(
             "invalidAPIVersionNew")
@@ -98,6 +98,38 @@ class TestIDLCompatibilityChecker(unittest.TestCase):
         removed_command_error = error_collection.get_error_by_error_id(
             idl_compatibility_errors.ERROR_ID_REMOVED_COMMAND)
         self.assertRegex(str(removed_command_error), "removedCommand")
+
+        removed_command_parameter_error = error_collection.get_error_by_command_name(
+            "removedCommandParameter")
+        self.assertTrue(removed_command_parameter_error.error_id ==
+                        idl_compatibility_errors.ERROR_ID_REMOVED_COMMAND_PARAMETER)
+        self.assertRegex(str(removed_command_parameter_error), "removedCommandParameter")
+
+        added_required_command_parameter_error = error_collection.get_error_by_command_name(
+            "addedNewCommandParameterRequired")
+        self.assertTrue(added_required_command_parameter_error.error_id ==
+                        idl_compatibility_errors.ERROR_ID_ADDED_REQUIRED_COMMAND_PARAMETER)
+        self.assertRegex(
+            str(added_required_command_parameter_error), "addedNewCommandParameterRequired")
+
+        command_parameter_unstable_error = error_collection.get_error_by_command_name(
+            "commandParameterUnstable")
+        self.assertTrue(command_parameter_unstable_error.error_id ==
+                        idl_compatibility_errors.ERROR_ID_COMMAND_PARAMETER_UNSTABLE)
+        self.assertRegex(str(command_parameter_unstable_error), "commandParameterUnstable")
+
+        command_parameter_stable_required_error = error_collection.get_error_by_command_name(
+            "commandParameterStableRequired")
+        self.assertTrue(command_parameter_stable_required_error.error_id ==
+                        idl_compatibility_errors.ERROR_ID_COMMAND_PARAMETER_STABLE_REQUIRED)
+        self.assertRegex(
+            str(command_parameter_stable_required_error), "commandParameterStableRequired")
+
+        command_parameter_required_error = error_collection.get_error_by_command_name(
+            "commandParameterRequired")
+        self.assertTrue(command_parameter_required_error.error_id ==
+                        idl_compatibility_errors.ERROR_ID_COMMAND_PARAMETER_REQUIRED)
+        self.assertRegex(str(command_parameter_required_error), "commandParameterRequired")
 
         new_reply_field_unstable_error = error_collection.get_error_by_command_name(
             "newReplyFieldUnstable")
@@ -254,6 +286,38 @@ class TestIDLCompatibilityChecker(unittest.TestCase):
         new_type_field_missing_error = error_collection.get_error_by_error_id(
             idl_compatibility_errors.ERROR_ID_NEW_COMMAND_TYPE_FIELD_MISSING)
         self.assertRegex(str(new_type_field_missing_error), "newTypeFieldMissing")
+
+        new_reply_field_variant_type_error = error_collection.get_error_by_error_id(
+            idl_compatibility_errors.ERROR_ID_NEW_REPLY_FIELD_VARIANT_TYPE)
+        self.assertRegex(str(new_reply_field_variant_type_error), "newReplyFieldVariantType")
+
+        new_reply_field_variant_not_subset_error = error_collection.get_error_by_command_name(
+            "newReplyFieldVariantNotSubset")
+        self.assertTrue(new_reply_field_variant_not_subset_error.error_id ==
+                        idl_compatibility_errors.ERROR_ID_NEW_REPLY_FIELD_VARIANT_TYPE_NOT_SUBSET)
+        self.assertRegex(
+            str(new_reply_field_variant_not_subset_error), "newReplyFieldVariantNotSubset")
+
+        new_reply_field_variant_recursive_error = error_collection.get_error_by_command_name(
+            "replyFieldVariantRecursive")
+        self.assertTrue(new_reply_field_variant_recursive_error.error_id ==
+                        idl_compatibility_errors.ERROR_ID_COMMAND_NOT_SUBSET)
+        self.assertRegex(str(new_reply_field_variant_recursive_error), "replyFieldVariantRecursive")
+
+        new_reply_field_variant_struct_not_subset_error = error_collection.get_error_by_command_name(
+            "newReplyFieldVariantStructNotSubset")
+        self.assertTrue(new_reply_field_variant_struct_not_subset_error.error_id ==
+                        idl_compatibility_errors.ERROR_ID_NEW_REPLY_FIELD_VARIANT_TYPE_NOT_SUBSET)
+        self.assertRegex(
+            str(new_reply_field_variant_struct_not_subset_error),
+            "newReplyFieldVariantStructNotSubset")
+
+        new_reply_field_variant_struct_recursive_error = error_collection.get_error_by_command_name(
+            "replyFieldVariantStructRecursive")
+        self.assertTrue(new_reply_field_variant_struct_recursive_error.error_id ==
+                        idl_compatibility_errors.ERROR_ID_COMMAND_NOT_SUBSET)
+        self.assertRegex(
+            str(new_reply_field_variant_struct_recursive_error), "replyFieldVariantStructRecursive")
 
     def test_error_reply(self):
         """Tests the compatibility checker with the ErrorReply struct."""

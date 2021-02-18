@@ -128,7 +128,7 @@ variables:
 # Templates used by powercycle
 - &powercycle_remote_credentials
   private_key_file: $(${posix_workdir})/powercycle.pem
-  private_key_remote: ${powercycle_private_key}
+  private_key_remote: ${__project_aws_ssh_key_value}
   aws_key_remote: ${powercycle_aws_key}
   aws_secret_remote: ${powercycle_aws_secret}
 
@@ -2363,14 +2363,18 @@ functions:
           set -o verbose
           set -o errexit
 
+          if [ "Windows_NT" = "$OS" ]; then
+            user=Administrator
+          else
+            user=$USER
+          fi
+
           ${activate_virtualenv}
           # Set an exit trap so we can save the real exit status (see SERVER-34033).
           trap 'echo $? > error_exit.txt; exit 0' EXIT
           set +o errexit
-          eval $python -u buildscripts/resmoke.py powercycle \
-            "--sshUserHost=${private_ip_address} \
-            --sshConnection=\"-i ${private_key_file} ${ssh_connection_options}\" \
-            --taskName=${task_name}"
+          eval $python -u buildscripts/resmoke.py powercycle run \
+            "--sshUserHost=$(printf "%s@%s" "$user" "${private_ip_address}") \
 
     - command: expansions.update
       params:
@@ -2573,12 +2577,13 @@ functions:
 
     - command: shell.exec
       params:
+        shell: bash
         script: |
-          identity_file=${private_key_file}
-          echo "${__project_aws_ssh_key_value}" > "$identity_file"
-          chmod 0600 "$identity_file"
-
-          user=$USER
+          if [ "Windows_NT" = "$OS" ]; then
+            user=Administrator
+          else
+            user=$USER
+          fi
           hostname=$(tr -d '"[]{}' < src/hosts.yml | cut -d , -f 1 | awk -F : '{print $2}')
 
           # To add the hostname to expansions.
@@ -2586,14 +2591,13 @@ functions:
 
           echo $hostname
           echo $user
-          echo $identity_file
 
           attempts=0
           connection_attempts=${connection_attempts|25}
 
           # Check for remote connectivity
           while ! ssh \
-            -i "$identity_file" \
+            -i ${private_key_file} \
             -o ConnectTimeout=10 \
             -o ForwardAgent=yes \
             -o IdentitiesOnly=yes \
@@ -2607,7 +2611,6 @@ functions:
             # sleep for Permission denied (publickey) errors
             sleep 10
           done
-        shell: bash
 
     - command: expansions.update
       params:
@@ -2626,10 +2629,10 @@ functions:
           set -o errexit
 
           ${activate_virtualenv}
-          $python buildscripts/powercycle_operations.py setUpEC2Instance
+          $python buildscripts/resmoke.py powercycle setup-host
 
   ### Process & archive remote EC2 artifacts ###
-  "tar EC2 artifacts": &tar_ec2_artifacts
+  "save powercycle artifacts": &save_powercycle_artifacts
     command: shell.exec
     params:
       shell: bash
@@ -2642,79 +2645,7 @@ functions:
         fi
 
         ${activate_virtualenv}
-        $python buildscripts/powercycle_operations.py tarEC2Artifacts
-
-  "copy EC2 artifacts": &copy_ec2_artifacts
-    command: shell.exec
-    params:
-      shell: bash
-      working_dir: src
-      script: |
-        if [ ! -f powercycle_ip_address.yml ]; then
-          exit 0
-        fi
-
-        ${activate_virtualenv}
-        $python buildscripts/powercycle_operations.py copyEC2Artifacts
-
-  "copy ec2 monitor files": &copy_ec2_monitor_files
-    command: shell.exec
-    params:
-      shell: bash
-      working_dir: src
-      script: |
-        set -o verbose
-
-        if [ ! -f powercycle_ip_address.yml ]; then
-          exit 0
-        fi
-
-        ${activate_virtualenv}
-        $python buildscripts/powercycle_operations.py copyEC2MonitorFiles
-
-  # The event logs on Windows are a useful diagnostic to have when determining if something bad
-  # happened to the remote machine after it was repeatedly crashed during powercycle testing. For
-  # example, the Application and System event logs have previously revealed that the mongod.exe
-  # process abruptly exited due to not being able to open a file despite the process successfully
-  # being restarted and responding to network requests.
-  "gather remote event logs": &gather_remote_event_logs
-    command: shell.exec
-    params:
-      shell: bash
-      working_dir: src
-      script: |
-        if [ ! -f powercycle_ip_address.yml ]; then
-          exit 0
-        fi
-
-        ${activate_virtualenv}
-        $python buildscripts/powercycle_operations.py gatherRemoteEventLogs
-
-  "gather remote mongo coredumps": &gather_remote_mongo_coredumps
-    command: shell.exec
-    params:
-      shell: bash
-      working_dir: "src"
-      script: |
-        if [ ! -f powercycle_ip_address.yml ]; then
-          exit 0
-        fi
-
-        ${activate_virtualenv}
-        $python buildscripts/powercycle_operations.py gatherRemoteMongoCoredumps
-
-  "copy remote mongo coredumps": &copy_remote_mongo_coredumps
-    command: shell.exec
-    params:
-      shell: bash
-      working_dir: "src"
-      script: |
-        if [ ! -f powercycle_ip_address.yml ]; then
-          exit 0
-        fi
-
-        ${activate_virtualenv}
-        $python buildscripts/powercycle_operations.py copyRemoteMongoCoredumps
+        $python buildscripts/resmoke.py powercycle save-diagnostics
 
   "archive remote EC2 artifacts": &archive_remote_ec2_artifacts
     command: s3.put
@@ -2743,12 +2674,7 @@ functions:
       optional: true
 
   "save ec2 task artifacts":
-    - *gather_remote_event_logs
-    - *tar_ec2_artifacts
-    - *copy_ec2_artifacts
-    - *copy_ec2_monitor_files
-    - *gather_remote_mongo_coredumps
-    - *copy_remote_mongo_coredumps
+    - *save_powercycle_artifacts
     - *archive_remote_ec2_artifacts
     - *archive_remote_ec2_monitor_files
 
@@ -3100,7 +3026,7 @@ functions:
 
         # Call hang analyzer for tasks that are running remote mongo processes
         if [ -n "${private_ip_address}" ]; then
-          $python buildscripts/powercycle_operations.py runHangAnalyzerOnRemoteInstance
+          $python buildscripts/resmoke.py powercycle remote-hang-analyzer
         fi
 
   "wait for resmoke to shutdown":
@@ -7312,7 +7238,6 @@ tasks:
     timeout_secs: 1800 # 30 minute timeout for no output
 
 - name: powercycle_kill_mongod
-  tags: ["powercycle"]
   exec_timeout_secs: 7200 # 2 hour timeout for the task overall
   depends_on:
   - name: archive_dist_test_debug
@@ -8855,6 +8780,9 @@ buildvariants:
   - name: .powercycle
     distros:
     - ubuntu1604-powercycle
+  - name: powercycle_kill_mongod
+    distros:
+    - ubuntu1604-powercycle
   - name: powercycle_replication_smalloplog
     distros:
     - ubuntu1604-powercycle
@@ -8999,162 +8927,6 @@ buildvariants:
   - name: test_packages
     distros:
     - ubuntu2004-package
-  - name: .publish
-    distros:
-    - ubuntu1804-test
-
-- name: enterprise-ubuntu1804-ppc64le
-  display_name: Enterprise Ubuntu 18.04 PPC64LE
-  modules:
-  - enterprise
-  run_on:
-  - ubuntu1804-power8-test
-  batchtime: 10080 # 7 days
-  expansions:
-    additional_package_targets: archive-mongocryptd archive-mongocryptd-debug
-    push_path: linux
-    push_bucket: downloads.10gen.com
-    push_name: linux
-    push_arch: ppc64le-enterprise-ubuntu1804
-    compile_flags: --ssl --ocsp-stapling=off MONGO_DISTMOD=ubuntu1804 -j$(echo "$(grep -c processor /proc/cpuinfo)/2" | bc) CCFLAGS="-mcpu=power8 -mtune=power8 -mcmodel=medium" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars
-    test_flags: --excludeWithAnyTags=requires_ocsp_stapling
-    resmoke_jobs_max: 2
-    has_packages: true
-    packager_script: packager_enterprise.py
-    packager_arch: ppc64le
-    packager_distro: ubuntu1804
-    repo_edition: enterprise
-    multiversion_platform: ubuntu1804
-    multiversion_architecture: ppc64le
-    multiversion_edition: enterprise
-    use_default_timeouts: true
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - ubuntu1804-power8-build
-  - name: aggregation
-  - name: .auth !.audit !.multiversion !.jscore
-  - name: .misc_js
-  - name: fle
-  - name: .jscore .common !.auth
-  - name: .ocsp
-  - name: replica_sets
-  - name: .replica_sets .common
-  - name: .sharding .txns
-  - name: sharding_gen
-  - name: .ssl
-  - name: .stitch
-  - name: .publish
-    distros:
-    - ubuntu1804-test
-
-- name: ubuntu1804-s390x
-  display_name: Ubuntu 18.04 s390x
-  run_on:
-  - ubuntu1804-zseries-test
-  batchtime: 525600 # 365 days
-  expansions:
-    push_path: linux
-    push_bucket: downloads.mongodb.org
-    push_name: linux
-    push_arch: s390x-ubuntu1804
-    compile_flags: --ssl --ocsp-stapling=off MONGO_DISTMOD=ubuntu1804 -j$(grep -c ^processor /proc/cpuinfo) CCFLAGS="-march=z196 -mtune=zEC12" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars
-    test_flags: --excludeWithAnyTags=requires_ocsp_stapling
-    multiversion_platform: ubuntu1804
-    multiversion_edition: targeted
-    multiversion_architecture: s390x
-    has_packages: true
-    packager_script: packager.py
-    packager_arch: s390x
-    packager_distro: ubuntu1804
-    repo_edition: org
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - ubuntu1804-zseries-build
-  - name: jsCore
-  - name: replica_sets_jscore_passthrough
-  - name: .publish
-    distros:
-    - ubuntu1804-test
-
-- name: enterprise-ubuntu1804-s390x-compile
-  display_name: Enterprise Ubuntu 18.04 s390x Compile
-  modules:
-  - enterprise
-  run_on:
-  - ubuntu1804-zseries-test
-  batchtime: 10080 # 7 days
-  stepback: false
-  expansions:
-    additional_package_targets: archive-mongocryptd archive-mongocryptd-debug
-    push_path: linux
-    push_bucket: downloads.10gen.com
-    push_name: linux
-    push_arch: s390x-enterprise-ubuntu1804
-    compile_flags: --ssl --ocsp-stapling=off MONGO_DISTMOD=ubuntu1804 -j$(grep -c ^processor /proc/cpuinfo) CCFLAGS="-march=z196 -mtune=zEC12" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars
-    test_flags: --excludeWithAnyTags=requires_ocsp_stapling
-    resmoke_jobs_max: 2
-    has_packages: true
-    packager_script: packager_enterprise.py
-    packager_arch: s390x
-    packager_distro: ubuntu1804
-    repo_edition: enterprise
-    multiversion_platform: ubuntu1804
-    multiversion_architecture: s390x
-    multiversion_edition: enterprise
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - ubuntu1804-zseries-build
-
-- name: enterprise-ubuntu1804-s390x
-  display_name: Enterprise Ubuntu 18.04 s390x
-  modules:
-  - enterprise
-  run_on:
-  - ubuntu1804-zseries-test
-  batchtime: 525600 # 365 days
-  stepback: false
-  expansions:
-    additional_package_targets: archive-mongocryptd archive-mongocryptd-debug
-    push_path: linux
-    push_bucket: downloads.10gen.com
-    push_name: linux
-    push_arch: s390x-enterprise-ubuntu1804
-    compile_flags: --ssl --ocsp-stapling=off MONGO_DISTMOD=ubuntu1804 -j$(grep -c ^processor /proc/cpuinfo) CCFLAGS="-march=z196 -mtune=zEC12" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars
-    test_flags: --excludeWithAnyTags=requires_ocsp_stapling
-    resmoke_jobs_max: 2
-    has_packages: true
-    packager_script: packager_enterprise.py
-    packager_arch: s390x
-    packager_distro: ubuntu1804
-    repo_edition: enterprise
-    multiversion_platform: ubuntu1804
-    multiversion_architecture: s390x
-    multiversion_edition: enterprise
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - ubuntu1804-zseries-build
-  - name: aggregation
-  - name: audit
-  - name: .auth !.multiversion !.jscore
-  - name: .misc_js
-  - name: .encrypt
-  - name: .integration !.audit
-    distros:
-    - ubuntu1804-zseries-build
-  - name: .jscore .common !.auth
-  - name: jsCore_op_query
-  - name: .read_write_concern
-  - name: replica_sets
-  - name: .replica_sets .common
-  - name: sasl
-  - name: .sharding .jscore !.wo_snapshot !.multi_stmt
-  - name: .sharding .common !.multiversion
-  - name: .sharding .txns
-  - name: snmp
   - name: .publish
     distros:
     - ubuntu1804-test
@@ -9798,6 +9570,7 @@ buildvariants:
   - name: burn_in_tests_gen
   - name: buildscripts_test
   - name: noPassthrough_gen
+  - name: powercycle_smoke
   - name: server_discovery_and_monitoring_json_test_TG
   - name: server_selection_json_test_TG
   - name: compile_run_and_archive_dbtest_TG
@@ -11613,57 +11386,6 @@ buildvariants:
   - name: jsCore
   - name: external_auth
 
-- name: enterprise-rhel-71-ppc64le
-  display_name: Enterprise RHEL 7.1 PPC64LE
-  modules:
-  - enterprise
-  run_on:
-  - rhel71-power8-test
-  batchtime: 10080 # 7 days
-  stepback: false
-  expansions:
-    additional_package_targets: archive-mongocryptd archive-mongocryptd-debug
-    # We need to compensate for SMT8 setting the cpu count very high and lower the amount of parallelism down
-    compile_flags: --ssl MONGO_DISTMOD=rhel71 -j$(echo "$(grep -c processor /proc/cpuinfo)/2" | bc) CCFLAGS="-mcpu=power8 -mtune=power8 -mcmodel=medium" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars
-    resmoke_jobs_factor: 0.25
-    has_packages: true
-    packager_script: packager_enterprise.py
-    packager_arch: ppc64le
-    packager_distro: rhel71
-    push_path: linux
-    push_bucket: downloads.10gen.com
-    push_name: linux
-    push_arch: ppc64le-enterprise-rhel71
-    repo_edition: enterprise
-    multiversion_platform: rhel71
-    multiversion_architecture: ppc64le
-    multiversion_edition: enterprise
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - rhel71-power8-build
-  - name: .aggregation .common
-  - name: audit
-  - name: .auth !.multiversion !.jscore
-  - name: .misc_js
-  - name: .encrypt
-  - name: .integration !.audit
-    distros:
-    - rhel71-power8-build
-  - name: .jscore .common !.auth
-  - name: jsCore_op_query
-  - name: .read_write_concern
-  - name: replica_sets
-  - name: .replica_sets .common
-  - name: sasl
-  - name: .sharding .jscore !.wo_snapshot !.multi_stmt
-  - name: .sharding .common !.multiversion
-  - name: snmp
-  - name: .stitch
-  - name: .publish
-    distros:
-    - rhel70-small
-
 - name: enterprise-rhel-81-ppc64le
   display_name: Enterprise RHEL 8.1 PPC64LE
   modules:
@@ -11840,76 +11562,6 @@ buildvariants:
   - name: jsCore
   - name: replica_sets_jscore_passthrough
 
-- name: enterprise-rhel-67-s390x-compile
-  display_name: Enterprise RHEL 6.7 s390x Compile
-  modules:
-  - enterprise
-  run_on:
-  - rhel67-zseries-test
-  batchtime: 10080 # 7 days
-  stepback: false
-  expansions:
-    additional_package_targets: archive-mongocryptd archive-mongocryptd-debug
-    compile_flags: --ssl MONGO_DISTMOD=rhel67 -j3 CCFLAGS="-march=z9-109 -mtune=z10" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars --use-hardware-crc32=off
-    has_packages: true
-    packager_script: packager_enterprise.py
-    packager_arch: s390x
-    packager_distro: rhel67
-    push_path: linux
-    push_bucket: downloads.10gen.com
-    push_name: linux
-    push_arch: s390x-enterprise-rhel67
-    repo_edition: enterprise
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - rhel67-zseries-build
-
-- name: enterprise-rhel-67-s390x
-  display_name: Enterprise RHEL 6.7 s390x
-  modules:
-  - enterprise
-  run_on:
-  - rhel67-zseries-test
-  batchtime: 525600 # 365 days
-  stepback: false
-  expansions:
-    additional_package_targets: archive-mongocryptd archive-mongocryptd-debug
-    compile_flags: --ssl MONGO_DISTMOD=rhel67 -j3 CCFLAGS="-march=z9-109 -mtune=z10" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars --use-hardware-crc32=off
-    has_packages: true
-    packager_script: packager_enterprise.py
-    packager_arch: s390x
-    packager_distro: rhel67
-    push_path: linux
-    push_bucket: downloads.10gen.com
-    push_name: linux
-    push_arch: s390x-enterprise-rhel67
-    repo_edition: enterprise
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - rhel67-zseries-build
-  - name: .aggregation .common
-  - name: audit
-  - name: .auth !.multiversion
-  - name: .misc_js
-  - name: .encrypt
-  - name: .integration !.audit !.sharded
-    distros:
-    - rhel67-zseries-build
-  - name: .jscore .common
-  - name: jsCore_minimum_batch_size
-  - name: replica_sets_jscore_passthrough
-  - name: sasl
-  - name: .sharding .jscore !.wo_snapshot !.multi_stmt
-  - name: .sharding .common !.multiversion
-  - name: snmp
-  - name: .stitch
-  - name: secondary_reads_passthrough_gen
-  - name: .publish
-    distros:
-    - rhel62-small
-
 - name: rhel-72-s390x
   display_name: RHEL 7.2 s390x
   batchtime: 525600 # 365 days
@@ -11936,33 +11588,6 @@ buildvariants:
   - name: .publish
     distros:
     - rhel70-small
-
-- name: rhel-67-s390x
-  display_name: RHEL 6.7 s390x
-  batchtime: 525600 # 365 days
-  run_on:
-  - rhel67-zseries-test
-  expansions:
-    compile_flags: --ssl MONGO_DISTMOD=rhel67 -j3 CCFLAGS="-march=z9-109 -mtune=z10" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars --use-hardware-crc32=off
-    has_packages: true
-    packager_script: packager.py
-    packager_arch: s390x
-    packager_distro: rhel67
-    push_path: linux
-    push_bucket: downloads.mongodb.org
-    push_name: linux
-    push_arch: s390x-rhel67
-    repo_edition: org
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - rhel67-zseries-build
-  - name: jsCore
-  - name: replica_sets_jscore_passthrough
-  - name: ssl_gen
-  - name: .publish
-    distros:
-    - rhel62-small
 
 ###########################################
 #          Ubuntu buildvariants           #
@@ -12087,116 +11712,6 @@ buildvariants:
   - name: .publish
     distros:
     - suse12-small
-
-- name: enterprise-suse12-s390x-compile
-  display_name: Enterprise SLES 12 s390x Compile
-  modules:
-  - enterprise
-  run_on:
-  - suse12-zseries-test
-  batchtime: 10080 # 7 days
-  stepback: false
-  expansions:
-    additional_package_targets: archive-mongocryptd archive-mongocryptd-debug
-    push_path: linux
-    push_bucket: downloads.10gen.com
-    push_name: linux
-    push_arch: s390x-enterprise-suse12
-    compile_flags: --ssl MONGO_DISTMOD=suse12 -j3 CCFLAGS="-march=z196 -mtune=zEC12" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars
-    has_packages: true
-    packager_script: packager_enterprise.py
-    packager_arch: s390x
-    packager_distro: suse12
-    repo_edition: enterprise
-    multiversion_platform: suse12
-    multiversion_architecture: s390x
-    multiversion_edition: enterprise
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - suse12-zseries-build
-
-- name: enterprise-suse12-s390x
-  display_name: Enterprise SLES 12 s390x
-  modules:
-  - enterprise
-  run_on:
-  - suse12-zseries-test
-  batchtime: 525600 # 365 days
-  stepback: false
-  expansions:
-    additional_package_targets: archive-mongocryptd archive-mongocryptd-debug
-    push_path: linux
-    push_bucket: downloads.10gen.com
-    push_name: linux
-    push_arch: s390x-enterprise-suse12
-    compile_flags: --ssl MONGO_DISTMOD=suse12 -j3 CCFLAGS="-march=z196 -mtune=zEC12" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars
-    has_packages: true
-    packager_script: packager_enterprise.py
-    packager_arch: s390x
-    packager_distro: suse12
-    repo_edition: enterprise
-    multiversion_platform: suse12
-    multiversion_architecture: s390x
-    multiversion_edition: enterprise
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - suse12-zseries-build
-  - name: .aggregation .common
-  - name: audit
-  - name: .auth !.multiversion !.jscore
-  - name: .misc_js
-  - name: .encrypt
-  - name: .integration !.audit
-    distros:
-    - suse12-zseries-build
-  - name: .jscore .common !.auth
-  - name: jsCore_op_query
-  - name: .read_write_concern
-  - name: replica_sets
-  - name: .replica_sets .common
-  - name: sasl
-  - name: .sharding .jscore !.wo_snapshot !.multi_stmt
-  - name: .sharding .common !.multiversion
-  - name: snmp
-  - name: .stitch
-  - name: secondary_reads_passthrough_gen
-  - name: .publish
-    distros:
-    - suse12-test
-
-- name: suse12-s390x
-  display_name: SLES 12 s390x
-  run_on:
-  - suse12-zseries-test
-  batchtime: 525600 # 365 days
-  stepback: false
-  expansions:
-    push_path: linux
-    push_bucket: downloads.mongodb.org
-    push_name: linux
-    push_arch: s390x-suse12
-    compile_flags: --ssl MONGO_DISTMOD=suse12 -j3 CCFLAGS="-march=z196 -mtune=zEC12" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars
-    has_packages: true
-    packager_script: packager.py
-    packager_arch: s390x
-    packager_distro: suse12
-    repo_edition: org
-    multiversion_platform: suse12
-    multiversion_architecture: s390x
-    multiversion_edition: targeted
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - suse12-zseries-build
-  - name: jsCore
-  - name: replica_sets_jscore_passthrough
-  - name: ssl_gen
-  - name: .publish
-    distros:
-    - suse12-test
-
 
 - name: suse12
   display_name: SUSE 12
@@ -12654,42 +12169,6 @@ buildvariants:
   # rollback_fuzzer_gen
   - name: .updatefuzzer
 
-- name: enterprise-rhel-71-ppc64le-inmem
-  display_name: Enterprise RHEL 7.1 PPC64LE (inMemory) DEBUG
-  modules:
-  - enterprise
-  run_on:
-  - rhel71-power8-test
-  batchtime: 10080 # 7 days
-  stepback: false
-  expansions:
-    additional_package_targets: archive-mongocryptd archive-mongocryptd-debug
-    # We need to compensate for SMT8 setting the cpu count very high and lower the amount of parallelism down
-    compile_flags: --dbg=on --opt=on --ssl MONGO_DISTMOD=rhel71 -j$(echo "$(grep -c processor /proc/cpuinfo)/2" | bc) CCFLAGS="-mcpu=power8 -mtune=power8 -mcmodel=medium" --variables-files=etc/scons/mongodbtoolchain_v3_gcc.vars
-    resmoke_jobs_factor: 0.25
-    test_flags: --storageEngine=inMemory --excludeWithAnyTags=requires_persistence,requires_journaling
-  tasks:
-  - name: compile_test_and_package_serial_TG
-    distros:
-    - rhel71-power8-build
-  - name: .aggregation .common
-  - name: audit
-  - name: .auth !.multiversion
-  - name: .misc_js
-  - name: .integration !.audit
-    distros:
-    - rhel71-power8-build
-  - name: .jscore .common !.decimal
-  - name: jsCore_op_query
-  - name: .read_write_concern !.durable_history
-  - name: replica_sets
-  - name: .replica_sets .common
-  - name: sasl
-  - name: .sharding .jscore !.wo_snapshot !.multi_stmt
-  - name: .sharding .common !.multiversion !.csrs
-  - name: snmp
-  - name: .ssl
-
 - name: enterprise-rhel-72-s390x-inmem
   display_name: Enterprise RHEL 7.2 s390x (inMemory) DEBUG
   modules:
@@ -12868,9 +12347,9 @@ buildvariants:
   - name: .multi_shard .common
   - name: .query_fuzzer
   - name: .read_write_concern
-#  - name: replica_sets_large_txns_format_gen
-#  - name: replica_sets_large_txns_format_jscore_passthrough
-#  - name: .replica_sets !.multi_oplog
+  - name: replica_sets_large_txns_format_gen
+  - name: replica_sets_large_txns_format_jscore_passthrough
+  - name: .replica_sets !.multi_oplog
   - name: .resharding_fuzzer
   - name: .retry
   - name: .read_only

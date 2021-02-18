@@ -40,8 +40,9 @@
 #include "mongo/db/error_labels.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/db/ops/write_ops.h"
-#include "mongo/db/query/query_request.h"
+#include "mongo/db/query/query_request_helper.h"
 #include "mongo/db/s/balancer/type_migration.h"
+#include "mongo/db/s/dist_lock_manager.h"
 #include "mongo/db/s/type_lockpings.h"
 #include "mongo/db/s/type_locks.h"
 #include "mongo/db/vector_clock.h"
@@ -101,15 +102,14 @@ OpMsg runCommandInLocalTxn(OperationContext* opCtx,
 void startTransactionWithNoopFind(OperationContext* opCtx,
                                   const NamespaceString& nss,
                                   TxnNumber txnNumber) {
-    BSONObjBuilder findCmdBuilder;
-    QueryRequest qr(nss);
-    qr.setBatchSize(0);
-    qr.setSingleBatchField(true);
-    qr.asFindCommand(&findCmdBuilder);
+    FindCommand findCommand(nss);
+    findCommand.setBatchSize(0);
+    findCommand.setSingleBatch(true);
 
-    auto res = runCommandInLocalTxn(
-                   opCtx, nss.db(), true /*startTransaction*/, txnNumber, findCmdBuilder.done())
-                   .body;
+    auto res =
+        runCommandInLocalTxn(
+            opCtx, nss.db(), true /*startTransaction*/, txnNumber, findCommand.toBSON(BSONObj()))
+            .body;
     uassertStatusOK(getStatusFromCommandResult(res));
 }
 
@@ -688,6 +688,12 @@ void ShardingCatalogManager::_upgradeCollectionsAndChunksMetadataFor49(Operation
     auto const catalogCache = Grid::get(opCtx)->catalogCache();
     auto const configShard = Grid::get(opCtx)->shardRegistry()->getConfigShard();
 
+    DistLockManager::ScopedDistLock dbDistLock(uassertStatusOK(DistLockManager::get(opCtx)->lock(
+        opCtx,
+        DistLockManager::kShardingRoutingInfoFormatStabilityLockName,
+        "fcvUpgrade",
+        DistLockManager::kDefaultLockTimeout)));
+
     auto collectionDocs =
         uassertStatusOK(
             configShard->exhaustiveFindOnConfig(
@@ -796,6 +802,13 @@ void ShardingCatalogManager::_downgradeCollectionsAndChunksMetadataToPre49(
 
     auto const catalogCache = Grid::get(opCtx)->catalogCache();
     auto const configShard = Grid::get(opCtx)->shardRegistry()->getConfigShard();
+
+    DistLockManager::ScopedDistLock dbDistLock(uassertStatusOK(DistLockManager::get(opCtx)->lock(
+        opCtx,
+        DistLockManager::kShardingRoutingInfoFormatStabilityLockName,
+        "fcvDowngrade",
+        DistLockManager::kDefaultLockTimeout)));
+
     auto collectionDocs =
         uassertStatusOK(
             configShard->exhaustiveFindOnConfig(

@@ -126,6 +126,7 @@ let viewsCommandTests = {
     _shardsvrRenameCollection: {skip: isAnInternalCommand},
     _shardsvrRenameCollectionParticipant: {skip: isAnInternalCommand},
     _shardsvrRenameCollectionUnblockParticipant: {skip: isAnInternalCommand},
+    _shardsvrReshardCollection: {skip: isAnInternalCommand},
     _shardsvrShardCollection: {skip: isAnInternalCommand},
     _transferMods: {skip: isAnInternalCommand},
     _vectorClockPersist: {skip: isAnInternalCommand},
@@ -577,6 +578,8 @@ let viewsCommandTests = {
     updateZoneKeyRange: {skip: isUnrelated},
     usersInfo: {skip: isUnrelated},
     validate: {command: {validate: "view"}, expectFailure: true},
+    validateDBMetadata:
+        {command: {validateDBMetadata: 1, apiParameters: {version: "1", strict: true}}},
     waitForOngoingChunkSplits: {skip: isUnrelated},
     voteCommitImportCollection: {skip: isUnrelated},
     voteCommitIndexBuild: {skip: isUnrelated},

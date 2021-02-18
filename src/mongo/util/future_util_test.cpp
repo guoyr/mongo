@@ -35,6 +35,7 @@
 #include "mongo/executor/thread_pool_task_executor_test_fixture.h"
 #include "mongo/unittest/barrier.h"
 #include "mongo/unittest/death_test.h"
+#include "mongo/unittest/thread_assertion_monitor.h"
 #include "mongo/util/future_util.h"
 
 namespace mongo {
@@ -95,12 +96,81 @@ TEST_F(AsyncTryUntilTest, LoopExecutesOnceWithAlwaysTrueCondition) {
     ASSERT_EQ(i, 1);
 }
 
+TEST_F(AsyncTryUntilTest, LoopDoesNotExecuteIfExecutorAlreadyShutdown) {
+    executor()->shutdown();
+
+    auto i = 0;
+    auto resultFut = AsyncTry([&] { ++i; })
+                         .until([](Status s) { return true; })
+                         .on(executor(), CancelationToken::uncancelable());
+
+    ASSERT_THROWS_CODE(resultFut.get(), DBException, ErrorCodes::ShutdownInProgress);
+
+    ASSERT_EQ(i, 0);
+}
+
+TEST_F(AsyncTryUntilTest, LoopWithDelayDoesNotExecuteIfExecutorAlreadyShutdown) {
+    executor()->shutdown();
+
+    auto i = 0;
+    auto resultFut = AsyncTry([&] { ++i; })
+                         .until([](Status s) { return true; })
+                         .withDelayBetweenIterations(Milliseconds(0))
+                         .on(executor(), CancelationToken::uncancelable());
+
+    ASSERT_THROWS_CODE(resultFut.get(), DBException, ErrorCodes::ShutdownInProgress);
+
+    ASSERT_EQ(i, 0);
+}
+
 TEST_F(AsyncTryUntilTest, LoopExecutesUntilConditionIsTrue) {
     const int numLoops = 3;
     auto i = 0;
     auto resultFut = AsyncTry([&] {
                          ++i;
                          return i;
+                     })
+                         .until([&](StatusWith<int> swInt) { return swInt.getValue() == numLoops; })
+                         .on(executor(), CancelationToken::uncancelable());
+    resultFut.wait();
+
+    ASSERT_EQ(i, numLoops);
+}
+
+TEST_F(AsyncTryUntilTest, LoopExecutesUntilConditionIsTrueWithFutureReturnType) {
+    const int numLoops = 3;
+    auto i = 0;
+    auto resultFut = AsyncTry([&] {
+                         ++i;
+                         return Future<int>::makeReady(i);
+                     })
+                         .until([&](StatusWith<int> swInt) { return swInt.getValue() == numLoops; })
+                         .on(executor(), CancelationToken::uncancelable());
+    resultFut.wait();
+
+    ASSERT_EQ(i, numLoops);
+}
+
+TEST_F(AsyncTryUntilTest, LoopExecutesUntilConditionIsTrueWithSemiFutureReturnType) {
+    const int numLoops = 3;
+    auto i = 0;
+    auto resultFut = AsyncTry([&] {
+                         ++i;
+                         return SemiFuture<int>::makeReady(i);
+                     })
+                         .until([&](StatusWith<int> swInt) { return swInt.getValue() == numLoops; })
+                         .on(executor(), CancelationToken::uncancelable());
+    resultFut.wait();
+
+    ASSERT_EQ(i, numLoops);
+}
+
+TEST_F(AsyncTryUntilTest, LoopExecutesUntilConditionIsTrueWithExecutorFutureReturnType) {
+    const int numLoops = 3;
+    auto i = 0;
+    auto resultFut = AsyncTry([&] {
+                         ++i;
+                         return ExecutorFuture<int>(executor(), i);
                      })
                          .until([&](StatusWith<int> swInt) { return swInt.getValue() == numLoops; })
                          .on(executor(), CancelationToken::uncancelable());
@@ -227,19 +297,119 @@ TEST_F(AsyncTryUntilTest, LoopBodyPropagatesValueOfLastIterationToCaller) {
     ASSERT_EQ(resultFut.get(), expectedResult);
 }
 
-TEST_F(AsyncTryUntilTest, LoopBodyPropagatesErrorToConditionAndCaller) {
+TEST_F(AsyncTryUntilTest, FutureReturningLoopBodyPropagatesValueOfLastIterationToCaller) {
+    auto i = 0;
+    auto expectedResult = 3;
     auto resultFut = AsyncTry([&] {
-                         uasserted(ErrorCodes::InternalError, "test error");
-                         return 3;
+                         ++i;
+                         return Future<int>::makeReady(i);
                      })
-                         .until([&](StatusWith<int> swInt) {
-                             ASSERT_NOT_OK(swInt);
-                             ASSERT_EQ(swInt.getStatus().code(), ErrorCodes::InternalError);
-                             return true;
-                         })
+                         .until([&](StatusWith<int> swInt) { return i == expectedResult; })
                          .on(executor(), CancelationToken::uncancelable());
 
-    ASSERT_EQ(resultFut.getNoThrow(), ErrorCodes::InternalError);
+    ASSERT_EQ(resultFut.get(), expectedResult);
+}
+
+TEST_F(AsyncTryUntilTest, SemiFutureReturningLoopBodyPropagatesValueOfLastIterationToCaller) {
+    auto i = 0;
+    auto expectedResult = 3;
+    auto resultFut = AsyncTry([&] {
+                         ++i;
+                         return SemiFuture<int>::makeReady(i);
+                     })
+                         .until([&](StatusWith<int> swInt) { return i == expectedResult; })
+                         .on(executor(), CancelationToken::uncancelable());
+
+    ASSERT_EQ(resultFut.get(), expectedResult);
+}
+
+TEST_F(AsyncTryUntilTest, ExecutorFutureReturningLoopBodyPropagatesValueOfLastIterationToCaller) {
+    auto i = 0;
+    auto expectedResult = 3;
+    auto resultFut = AsyncTry([&] {
+                         ++i;
+                         return ExecutorFuture<int>(executor(), i);
+                     })
+                         .until([&](StatusWith<int> swInt) { return i == expectedResult; })
+                         .on(executor(), CancelationToken::uncancelable());
+
+    ASSERT_EQ(resultFut.get(), expectedResult);
+}
+
+TEST_F(AsyncTryUntilTest, LoopBodyPropagatesErrorToConditionAndCaller) {
+    unittest::threadAssertionMonitoredTest([&](auto& assertionMonitor) {
+        auto resultFut = AsyncTry<std::function<void()>>([&] {
+                             uasserted(ErrorCodes::InternalError, "test error");
+                             return 3;
+                         })
+                             .until([&](StatusWith<int> swInt) {
+                                 assertionMonitor.exec([&] {
+                                     ASSERT_NOT_OK(swInt);
+                                     ASSERT_EQ(swInt.getStatus().code(), ErrorCodes::InternalError);
+                                 });
+                                 return true;
+                             })
+                             .on(executor(), CancelationToken::uncancelable());
+
+        ASSERT_EQ(resultFut.getNoThrow(), ErrorCodes::InternalError);
+    });
+}
+
+TEST_F(AsyncTryUntilTest, FutureReturningLoopBodyPropagatesErrorToConditionAndCaller) {
+    unittest::threadAssertionMonitoredTest([&](auto& assertionMonitor) {
+        auto resultFut = AsyncTry<std::function<void()>>([&] {
+                             uasserted(ErrorCodes::InternalError, "test error");
+                             return Future<int>::makeReady(3);
+                         })
+                             .until([&](StatusWith<int> swInt) {
+                                 assertionMonitor.exec([&] {
+                                     ASSERT_NOT_OK(swInt);
+                                     ASSERT_EQ(swInt.getStatus().code(), ErrorCodes::InternalError);
+                                 });
+                                 return true;
+                             })
+                             .on(executor(), CancelationToken::uncancelable());
+
+        ASSERT_EQ(resultFut.getNoThrow(), ErrorCodes::InternalError);
+    });
+}
+
+TEST_F(AsyncTryUntilTest, SemiFutureReturningLoopBodyPropagatesErrorToConditionAndCaller) {
+    unittest::threadAssertionMonitoredTest([&](auto& assertionMonitor) {
+        auto resultFut = AsyncTry<std::function<void()>>([&] {
+                             uasserted(ErrorCodes::InternalError, "test error");
+                             return SemiFuture<int>::makeReady(3);
+                         })
+                             .until([&](StatusWith<int> swInt) {
+                                 assertionMonitor.exec([&] {
+                                     ASSERT_NOT_OK(swInt);
+                                     ASSERT_EQ(swInt.getStatus().code(), ErrorCodes::InternalError);
+                                 });
+                                 return true;
+                             })
+                             .on(executor(), CancelationToken::uncancelable());
+
+        ASSERT_EQ(resultFut.getNoThrow(), ErrorCodes::InternalError);
+    });
+}
+
+TEST_F(AsyncTryUntilTest, ExecutorFutureReturningLoopBodyPropagatesErrorToConditionAndCaller) {
+    unittest::threadAssertionMonitoredTest([&](auto& assertionMonitor) {
+        auto resultFut = AsyncTry<std::function<void()>>([&] {
+                             uasserted(ErrorCodes::InternalError, "test error");
+                             return ExecutorFuture<int>(executor(), 3);
+                         })
+                             .until([&](StatusWith<int> swInt) {
+                                 assertionMonitor.exec([&] {
+                                     ASSERT_NOT_OK(swInt);
+                                     ASSERT_EQ(swInt.getStatus().code(), ErrorCodes::InternalError);
+                                 });
+                                 return true;
+                             })
+                             .on(executor(), CancelationToken::uncancelable());
+
+        ASSERT_EQ(resultFut.getNoThrow(), ErrorCodes::InternalError);
+    });
 }
 
 static const Status kCanceledStatus = {ErrorCodes::CallbackCanceled, "AsyncTry::until canceled"};
@@ -494,6 +664,40 @@ TEST_F(WhenAllSucceedTest, WhenAllSucceedWorksWithExecutorFutures) {
     }
 }
 
+TEST_F(WhenAllSucceedTest, VariadicWhenAllSucceedMaintainsOrderingOfInputFutures) {
+    const auto kNumInputs = 5;
+    auto [inputPromises, inputFutures] = makePromisesAndFutures<int>(kNumInputs);
+
+    auto result = whenAllSucceed(std::move(inputFutures[0]),
+                                 std::move(inputFutures[1]),
+                                 std::move(inputFutures[2]),
+                                 std::move(inputFutures[3]),
+                                 std::move(inputFutures[4]));
+
+    // Create a random order of indexes in which to resolve the input futures.
+    std::vector<int> ordering;
+    for (auto i = 0; i < kNumInputs; ++i) {
+        ordering.push_back(i);
+    }
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(ordering.begin(), ordering.end(), g);
+
+    for (auto idx : ordering) {
+        ASSERT_FALSE(result.isReady());
+        inputPromises[idx].emplaceValue(idx);
+    }
+
+    auto outputValues = result.get();
+    ASSERT_EQ(outputValues.size(), kNumInputs);
+
+    // The output should be in the same order as the input, regardless of the
+    // order in which the futures resolved.
+    for (auto i = 0; i < kNumInputs; ++i) {
+        ASSERT_EQ(outputValues[i], i);
+    }
+}
+
 // Test whenAllSucceed with void input futures.
 using WhenAllSucceedVoidTest = WhenAllSucceedTest;
 
@@ -584,6 +788,25 @@ TEST_F(WhenAllSucceedVoidTest,
     auto [inputPromises, inputFutures] = makePromisesAndFutures<void>(kNumInputs);
 
     auto result = whenAllSucceed(std::move(inputFutures));
+
+    for (auto i = 0; i < kNumInputs; ++i) {
+        ASSERT_FALSE(result.isReady());
+        inputPromises[i].emplaceValue();
+    }
+
+    ASSERT_EQ(result.getNoThrow(), Status::OK());
+}
+
+TEST_F(WhenAllSucceedVoidTest,
+       VariadicWhenAllSucceedVoidReturnsReturnsAfterLastSuccessfulResponseWithManyInputFutures) {
+    const auto kNumInputs = 5;
+    auto [inputPromises, inputFutures] = makePromisesAndFutures<void>(kNumInputs);
+
+    auto result = whenAllSucceed(std::move(inputFutures[0]),
+                                 std::move(inputFutures[1]),
+                                 std::move(inputFutures[2]),
+                                 std::move(inputFutures[3]),
+                                 std::move(inputFutures[4]));
 
     for (auto i = 0; i < kNumInputs; ++i) {
         ASSERT_FALSE(result.isReady());
@@ -784,6 +1007,28 @@ TEST_F(WhenAllTest, WorksWithExecutorFutures) {
     }
 }
 
+TEST_F(WhenAllTest, WorksWithVariadicTemplate) {
+    const auto kNumInputs = 3;
+    auto [inputPromises, inputFutures] = makePromisesAndFutures<int>(kNumInputs);
+
+    auto result =
+        whenAll(std::move(inputFutures[0]), std::move(inputFutures[1]), std::move(inputFutures[2]));
+    ASSERT_FALSE(result.isReady());
+
+    const auto kValue = 10;
+    for (auto i = 0; i < kNumInputs; ++i) {
+        ASSERT_FALSE(result.isReady());
+        inputPromises[i].emplaceValue(kValue);
+    }
+
+    auto output = result.get();
+    ASSERT_EQ(output.size(), kNumInputs);
+    for (auto& swValue : output) {
+        ASSERT_TRUE(swValue.isOK());
+        ASSERT_EQ(swValue.getValue(), kValue);
+    }
+}
+
 class WhenAnyTest : public FutureUtilTest {};
 
 TEST_F(WhenAnyTest, ReturnsTheFirstFutureToResolveWhenThatFutureContainsSuccessAndOnlyOneInput) {
@@ -936,6 +1181,46 @@ TEST_F(WhenAnyTest, WorksWithExecutorFutures) {
     ASSERT_FALSE(result.isReady());
 
     const auto kWhichIdxWillBeFirst = 3;
+    const auto kValue = 10;
+    inputPromises[kWhichIdxWillBeFirst].emplaceValue(kValue);
+    auto [swVal, idx] = result.get();
+    ASSERT_TRUE(swVal.isOK());
+    ASSERT_EQ(swVal.getValue(), kValue);
+    ASSERT_EQ(idx, kWhichIdxWillBeFirst);
+}
+
+TEST_F(WhenAnyTest, WorksWithVariadicTemplate) {
+    const auto kNumInputs = 3;
+    auto [inputPromises, inputFutures] = makePromisesAndFutures<int>(kNumInputs);
+
+    auto result =
+        whenAny(std::move(inputFutures[0]), std::move(inputFutures[1]), std::move(inputFutures[2]));
+    ASSERT_FALSE(result.isReady());
+
+    const auto kWhichIdxWillBeFirst = 1;
+    const auto kValue = 10;
+    inputPromises[kWhichIdxWillBeFirst].emplaceValue(kValue);
+    auto [swVal, idx] = result.get();
+    ASSERT_TRUE(swVal.isOK());
+    ASSERT_EQ(swVal.getValue(), kValue);
+    ASSERT_EQ(idx, kWhichIdxWillBeFirst);
+}
+
+TEST_F(WhenAnyTest, WorksWithVariadicTemplateAndExecutorFutures) {
+    const auto kNumInputs = 3;
+    auto [inputPromises, rawInputFutures] = makePromisesAndFutures<int>(kNumInputs);
+
+    // Turn raw input Futures into ExecutorFutures.
+    std::vector<ExecutorFuture<int>> inputFutures;
+    for (auto i = 0; i < kNumInputs; ++i) {
+        inputFutures.emplace_back(std::move(rawInputFutures[i]).thenRunOn(executor()));
+    }
+
+    auto result =
+        whenAny(std::move(inputFutures[0]), std::move(inputFutures[1]), std::move(inputFutures[2]));
+    ASSERT_FALSE(result.isReady());
+
+    const auto kWhichIdxWillBeFirst = 1;
     const auto kValue = 10;
     inputPromises[kWhichIdxWillBeFirst].emplaceValue(kValue);
     auto [swVal, idx] = result.get();

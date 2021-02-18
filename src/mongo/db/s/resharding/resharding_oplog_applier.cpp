@@ -216,6 +216,9 @@ Status insertOplogAndUpdateConfigForRetryable(OperationContext* opCtx,
             sessionTxnRecord.setSessionId(*oplog.getSessionId());
             sessionTxnRecord.setTxnNum(txnNumber);
             sessionTxnRecord.setLastWriteOpTime(oplogOpTime);
+
+            // Use the same wallTime as oplog since SessionUpdateTracker looks at the oplog entry
+            // wallTime when replicating.
             sessionTxnRecord.setLastWriteDate(noOpOplog.getWallClockTime());
             txnParticipant.onRetryableWriteCloningCompleted(opCtx, {stmtId}, sessionTxnRecord);
 
@@ -501,9 +504,7 @@ NamespaceString ReshardingOplogApplier::ensureStashCollectionExists(
     const UUID& existingUUID,
     const ShardId& donorShardId,
     const CollectionOptions& options) {
-    auto nss = NamespaceString{NamespaceString::kConfigDb,
-                               "localReshardingConflictStash.{}.{}"_format(
-                                   existingUUID.toString(), donorShardId.toString())};
+    auto nss = getLocalConflictStashNamespace(existingUUID, donorShardId);
 
     resharding::data_copy::ensureCollectionExists(opCtx, nss, options);
     return nss;
