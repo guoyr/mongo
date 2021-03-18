@@ -10319,7 +10319,7 @@ buildvariants:
     max_sub_suites: 5
     large_distro_name: rhel80-medium
     num_scons_link_jobs_available: 0.99
-    test_flags: --runDisabledFeatureFlagTests
+    test_flags: --runAllFeatureFlagTests
   tasks:
   - name: compile_test_and_package_parallel_core_stream_TG
     distros:

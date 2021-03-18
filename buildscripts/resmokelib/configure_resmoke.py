@@ -47,7 +47,7 @@ def _validate_options(parser, args):
             "Cannot use --replayFile with additional test files listed on the command line invocation."
         )
 
-    if args.run_disabled_feature_flag_tests:
+    if args.run_all_feature_flag_tests:
         if not os.path.isfile(ALL_FEATURE_FLAG_FILE):
             parser.error("To run tests with disabled feature flags, the %s file must exist" %
                          ALL_FEATURE_FLAG_FILE)
@@ -149,10 +149,10 @@ def _update_config_vars(values):  # pylint: disable=too-many-statements,too-many
             user_config = dict(config_parser["resmoke"])
             config.update(user_config)
 
-    # If the run_disabled_feature_flag_tests option is specified, run only tests with
+    # If the run_all_feature_flag_tests option is specified, run only tests with
     # disabled feature tags and a Server that enables all disabled features.
     all_feature_flags = None
-    if config.pop("run_disabled_feature_flag_tests"):
+    if config.pop("run_all_feature_flag_tests"):
         all_feature_flags = open(ALL_FEATURE_FLAG_FILE).read().split()
 
     _config.ALWAYS_USE_LOG_FILES = config.pop("always_use_log_files")
@@ -172,12 +172,6 @@ def _update_config_vars(values):  # pylint: disable=too-many-statements,too-many
     _config.FLOW_CONTROL_TICKETS = config.pop("flow_control_tickets")
 
     _config.INCLUDE_WITH_ANY_TAGS = _tags_from_list(config.pop("include_with_any_tags"))
-    if all_feature_flags is not None:
-        if _config.INCLUDE_WITH_ANY_TAGS:
-            # TODO SERVER-55222: Support more structured tags parsing.
-            raise ValueError("Tasks using the --includeWithAnyTags option can't be run on the all"
-                             " feature flags variant at the moment")
-        _config.INCLUDE_WITH_ANY_TAGS = all_feature_flags
 
     _config.GENNY_EXECUTABLE = _expand_user(config.pop("genny_executable"))
     _config.JOBS = config.pop("jobs")

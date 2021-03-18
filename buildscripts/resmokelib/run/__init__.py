@@ -780,7 +780,7 @@ class RunPlugin(PluginInterface):
         )
 
         parser.add_argument(
-            "--runDisabledFeatureFlagTests", dest="run_disabled_feature_flag_tests",
+            "--runAllFeatureFlagTests", dest="run_all_feature_flag_tests",
             action="store_true", help=
             "Run MongoDB servers with all feature flags enabled and only run tests tags with these feature flags"
         )
