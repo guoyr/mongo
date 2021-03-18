@@ -3279,7 +3279,7 @@ tasks:
           set -o errexit
           set -o verbose
           ${activate_virtualenv}
-          $python buildscripts/idl/gen_disabled_feature_flag_list.py --import-dir src --import-dir src/mongo/db/modules/enterprise/src
+          $python buildscripts/idl/gen_all_feature_flag_list.py --import-dir src --import-dir src/mongo/db/modules/enterprise/src
 
     - command: archive.targz_pack
       params:

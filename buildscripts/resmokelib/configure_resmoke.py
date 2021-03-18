@@ -173,11 +173,10 @@ def _update_config_vars(values):  # pylint: disable=too-many-statements,too-many
 
     _config.INCLUDE_WITH_ANY_TAGS = _tags_from_list(config.pop("include_with_any_tags"))
     if all_feature_flags is not None:
-        if len(_config.INCLUDE_WITH_ANY_TAGS) > 0:
+        if _config.INCLUDE_WITH_ANY_TAGS:
             # TODO SERVER-55222: Support more structured tags parsing.
             raise ValueError("Tasks using the --includeWithAnyTags option can't be run on the all"
                              " feature flags variant at the moment")
-        _config.INCLUDE_WITH_ANY_TAGS = utils.default_if_none(_config.INCLUDE_WITH_ANY_TAGS, [])
         _config.INCLUDE_WITH_ANY_TAGS = all_feature_flags
 
     _config.GENNY_EXECUTABLE = _expand_user(config.pop("genny_executable"))
