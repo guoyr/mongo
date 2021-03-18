@@ -1148,10 +1148,12 @@ def to_local_args(input_args=None):  # pylint: disable=too-many-branches,too-man
             if not hasattr(parsed_args, arg_dest):
                 continue
             # Skip any evergreen centric args.
-            elif group.title in [_INTERNAL_OPTIONS_TITLE, _EVERGREEN_ARGUMENT_TITLE]:
+            elif group.title in [_INTERNAL_OPTIONS_TITLE, _EVERGREEN_ARGUMENT_TITLE, _CEDAR_ARGUMENT_TITLE]:
                 continue
-            # Keep these args.
-            elif group.title == 'optional arguments':
+            elif group.title == 'positional arguments':
+                positional_args.extend(arg_value)
+            # Keep all remaining args.
+            else:
                 arg_name = action.option_strings[-1]
 
                 # If an option has the same value as the default, we don't need to specify it.
@@ -1174,8 +1176,6 @@ def to_local_args(input_args=None):  # pylint: disable=too-many-branches,too-man
                         storage_engine_arg = arg
                     else:
                         other_local_args.append(arg)
-            elif group.title == 'positional arguments':
-                positional_args.extend(arg_value)
 
     return ["run"] + [arg for arg in (suites_arg, storage_engine_arg) if arg is not None
                       ] + other_local_args + positional_args
