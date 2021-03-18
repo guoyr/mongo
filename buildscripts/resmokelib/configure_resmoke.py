@@ -49,7 +49,7 @@ def _validate_options(parser, args):
 
     if args.run_disabled_feature_flag_tests:
         if not os.path.isfile(ALL_FEATURE_FLAG_FILE):
-            parser.error("To run tests with disabled feature flags, the %s file must exist",
+            parser.error("To run tests with disabled feature flags, the %s file must exist" %
                          ALL_FEATURE_FLAG_FILE)
 
     def get_set_param_errors(process_params):

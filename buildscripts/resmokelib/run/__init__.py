@@ -780,8 +780,8 @@ class RunPlugin(PluginInterface):
         )
 
         parser.add_argument(
-            "--runDisabledFeatureFlagTests", dest="run_disabled_feature_flag_tests", action="store_true",
-            help=
+            "--runDisabledFeatureFlagTests", dest="run_disabled_feature_flag_tests",
+            action="store_true", help=
             "Run MongoDB servers with all feature flags enabled and only run tests tags with these feature flags"
         )
 
@@ -862,9 +862,9 @@ class RunPlugin(PluginInterface):
             "--wiredTigerIndexConfigString", dest="wt_index_config", metavar="CONFIG",
             help="Sets the WiredTiger index configuration setting for all mongod's.")
 
-        mongodb_server_options.add_argument(
-            "--transportLayer", dest="transport_layer", metavar="TRANSPORT",
-            help="The transport layer used by jstests")
+        mongodb_server_options.add_argument("--transportLayer", dest="transport_layer",
+                                            metavar="TRANSPORT",
+                                            help="The transport layer used by jstests")
 
         mongodb_server_options.add_argument(
             "--fuzzMongodConfigs", dest="fuzz_mongod_configs", action="store_true",

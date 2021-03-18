@@ -3279,7 +3279,7 @@ tasks:
           set -o errexit
           set -o verbose
           ${activate_virtualenv}
-          $python buildscripts/idl/gen_disabled_feature_flag_list.py --include src --include src/mongo/db/modules/enterprise/src
+          $python buildscripts/idl/gen_disabled_feature_flag_list.py --import-dir src --import-dir src/mongo/db/modules/enterprise/src
 
     - command: archive.targz_pack
       params:
@@ -10403,12 +10403,13 @@ buildvariants:
   - name: .stitch
   - name: .updatefuzzer
   - name: secondary_reads_passthrough_gen
-  - name: server_discovery_and_monitoring_json_test_TG
-    distros:
-      - rhel80-large
-  - name: server_selection_json_test_TG
-    distros:
-      - rhel80-large
+# Disabling as the following tests are not aware of feature flags.
+#  - name: server_discovery_and_monitoring_json_test_TG
+#    distros:
+#      - rhel80-large
+#  - name: server_selection_json_test_TG
+#    distros:
+#      - rhel80-large
 
 - name: enterprise-rhel-80-64-bit-dynamic-sbe
   display_name: "Shared Library Enterprise RHEL 8.0 (SBE)"

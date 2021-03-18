@@ -25,8 +25,9 @@
 # exception statement from all source files in the program, then also delete
 # it in the license file.
 """
-Generate a file containing a list of disabled feature flags. Used by resmoke.py
-to run only feature flag tests.
+Generate a file containing a list of disabled feature flags.
+
+Used by resmoke.py to run only feature flag tests.
 """
 
 import argparse
@@ -40,7 +41,8 @@ sys.path.append(os.path.normpath(os.path.join(os.path.abspath(__file__), '../../
 import buildscripts.idl.lib as lib
 
 
-def gen_disabled_feature_flags(idl_dir: str, import_dir: str):
+def gen_all_feature_flags(idl_dir: str, import_dir: str):
+    """Generate a list of all feature flags."""
     disabled_flags = []
     for idl_path in sorted(lib.list_idls(idl_dir)):
         for feature_flag in lib.parse_idl(idl_path, import_dir).spec.feature_flags:
@@ -51,13 +53,14 @@ def gen_disabled_feature_flags(idl_dir: str, import_dir: str):
 
 
 def main():
+    """Main function."""
     arg_parser = argparse.ArgumentParser(description=__doc__)
     arg_parser.add_argument("--import-dir", dest="import_dir", type=str, action="append",
                             help="Directory to search for IDL import files")
 
     args = arg_parser.parse_args()
 
-    flags = gen_disabled_feature_flags(os.getcwd(), args.import_dir)
+    flags = gen_all_feature_flags(os.getcwd(), args.import_dir)
     with open(lib.ALL_FEATURE_FLAG_FILE, "w") as output_file:
         for flag in flags:
             output_file.write("%s\n" % flag)
