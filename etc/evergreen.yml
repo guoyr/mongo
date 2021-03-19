@@ -9576,25 +9576,7 @@ buildvariants:
     max_sub_suites: 5
     large_distro_name: windows-vsCurrent-large
     test_flags: >-
-        --mongodSetParameters="{
-            featureFlagToaster: true,
-            featureFlagSpoon: true,
-            featureFlagAuthorizationContract: true,
-            featureFlagImprovedAuditing: true,
-            featureFlagRuntimeAuditConfig: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagShardingFullDDLSupport: true,
-            featureFlagShardingFullDDLSupportTimestampedVersion: true,
-            featureFlagWindowFunctions: true,
-            featureFlagUseSecondaryDelaySecs: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
-        --mongosSetParameters="{
-            featureFlagImprovedAuditing: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagWindowFunctions: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
+        --runDisabledFeatureFlagTests
         --excludeWithAnyTags=incompatible_with_windows_tls
 
 - &enterprise-windows-suggested-template

@@ -49,6 +49,12 @@ def gen_all_feature_flags(idl_dir: str, import_dir: str):
             if feature_flag.default.literal != "true":
                 disabled_flags.append(feature_flag.name)
 
+    # TODO: SERVER-XXXXX Set the SBE feature flag.
+    disabled_flags.remove("featureFlagSBE")
+
+    # TODO: SERVER-XXXXX Set the tenant migration feature flag.
+    disabled_flags.remove("featureFlagTenantMigrations")
+
     return disabled_flags
 
 
