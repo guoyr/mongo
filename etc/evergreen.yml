@@ -9664,25 +9664,7 @@ buildvariants:
     max_sub_suites: 3
     large_distro_name: windows-vsCurrent-large
     test_flags: >-
-        --mongodSetParameters="{
-            featureFlagToaster: true,
-            featureFlagSpoon: true,
-            featureFlagAuthorizationContract: true,
-            featureFlagImprovedAuditing: true,
-            featureFlagRuntimeAuditConfig: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagShardingFullDDLSupport: true,
-            featureFlagShardingFullDDLSupportTimestampedVersion: true,
-            featureFlagWindowFunctions: true,
-            featureFlagUseSecondaryDelaySecs: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
-        --mongosSetParameters="{
-            featureFlagImprovedAuditing: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagWindowFunctions: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
+        --runDisabledFeatureFlagTests
         --excludeWithAnyTags=incompatible_with_windows_tls
 
 - <<: *enterprise-windows-nopush-template
@@ -10306,12 +10288,13 @@ buildvariants:
   - name: compile_test_and_package_parallel_core_stream_TG
     distros:
       - rhel80-large
-  - name: compile_test_and_package_parallel_unittest_stream_TG
-    distros:
-      - rhel80-large
-  - name: compile_test_and_package_parallel_dbtest_stream_TG
-    distros:
-    - rhel80-medium
+# Disabling as the following tests are not aware of feature flags.
+#  - name: compile_test_and_package_parallel_unittest_stream_TG
+#    distros:
+#      - rhel80-large
+#  - name: compile_test_and_package_parallel_dbtest_stream_TG
+#    distros:
+#    - rhel80-medium
   - name: libdeps_graph_linting_TG
     distros:
       - rhel80-large
@@ -11364,26 +11347,7 @@ buildvariants:
     multiversion_architecture: s390x
     multiversion_edition: enterprise
     test_flags: >-
-        --mongodSetParameters="{
-            featureFlagToaster: true,
-            featureFlagSpoon: true,
-            featureFlagAuthorizationContract: true,
-            featureFlagTenantMigrations: true,
-            featureFlagImprovedAuditing: true,
-            featureFlagRuntimeAuditConfig: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagShardingFullDDLSupport: true,
-            featureFlagShardingFullDDLSupportTimestampedVersion: true,
-            featureFlagWindowFunctions: true,
-            featureFlagUseSecondaryDelaySecs: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
-        --mongosSetParameters="{
-            featureFlagImprovedAuditing: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagWindowFunctions: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
+        --runDisabledFeatureFlagTests
   tasks:
   - name: compile_test_and_package_serial_TG
     distros:
@@ -12085,27 +12049,7 @@ buildvariants:
     scons_cache_scope: shared
     exec_timeout_secs: 14400 # 3 hour timeout
     test_flags: >-
-        --excludeWithAnyTags=requires_fast_memory,requires_ocsp_stapling
-        --mongodSetParameters="{
-            featureFlagToaster: true,
-            featureFlagSpoon: true,
-            featureFlagAuthorizationContract: true,
-            featureFlagTenantMigrations: true,
-            featureFlagImprovedAuditing: true,
-            featureFlagRuntimeAuditConfig: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagShardingFullDDLSupport: true,
-            featureFlagShardingFullDDLSupportTimestampedVersion: true,
-            featureFlagWindowFunctions: true,
-            featureFlagUseSecondaryDelaySecs: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
-        --mongosSetParameters="{
-            featureFlagImprovedAuditing: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagWindowFunctions: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
+        --runDisabledFeatureFlagTests
   tasks:
   - name: compile_test_and_package_serial_TG
   - name: compile_benchmarks
@@ -12258,26 +12202,7 @@ buildvariants:
     compile_flags: --variables-files=etc/scons/mongodbtoolchain_v3_clang.vars --dbg=on --opt=on --sanitize=undefined --ssl --ocsp-stapling=off --enable-free-mon=on -j$(grep -c ^processor /proc/cpuinfo)
     test_flags: >-
         --excludeWithAnyTags=requires_ocsp_stapling
-        --mongodSetParameters="{
-            featureFlagToaster: true,
-            featureFlagSpoon: true,
-            featureFlagAuthorizationContract: true,
-            featureFlagTenantMigrations: true,
-            featureFlagImprovedAuditing: true,
-            featureFlagRuntimeAuditConfig: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagShardingFullDDLSupport: true,
-            featureFlagShardingFullDDLSupportTimestampedVersion: true,
-            featureFlagWindowFunctions: true,
-            featureFlagUseSecondaryDelaySecs: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
-        --mongosSetParameters="{
-            featureFlagImprovedAuditing: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagWindowFunctions: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
+        --runDisabledFeatureFlagTests
     multiversion_platform: ubuntu1804
     multiversion_edition: enterprise
     resmoke_jobs_factor: 0.3  # Avoid starting too many mongod's under UBSAN build.
@@ -12375,26 +12300,7 @@ buildvariants:
     compile_flags: --variables-files=etc/scons/mongodbtoolchain_v3_clang.vars --dbg=on --opt=on --allocator=system --sanitize=undefined,address --ssl --ocsp-stapling=off -j$(grep -c ^processor /proc/cpuinfo) --link-model=dynamic
     test_flags: >-
         --excludeWithAnyTags=requires_ocsp_stapling
-        --mongodSetParameters="{
-            featureFlagToaster: true,
-            featureFlagSpoon: true,
-            featureFlagAuthorizationContract: true,
-            featureFlagTenantMigrations: true,
-            featureFlagImprovedAuditing: true,
-            featureFlagRuntimeAuditConfig: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagShardingFullDDLSupport: true,
-            featureFlagShardingFullDDLSupportTimestampedVersion: true,
-            featureFlagWindowFunctions: true,
-            featureFlagUseSecondaryDelaySecs: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
-        --mongosSetParameters="{
-            featureFlagImprovedAuditing: true,
-            featureFlagTimeseriesCollection: true,
-            featureFlagWindowFunctions: true,
-            featureFlagChangeStreamsOptimization: true,
-        }"
+        --runDisabledFeatureFlagTests
     resmoke_jobs_factor: 0.3  # Avoid starting too many mongod's under {A,UB}SAN build.
     hang_analyzer_dump_core: false
     scons_cache_scope: shared
