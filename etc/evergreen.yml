@@ -9555,7 +9555,8 @@ buildvariants:
       - windows-vsCurrent-xlarge
   - name: unittest_shell_hang_analyzer_gen
 
-- name: enterprise-windows-all-feature-flags-required
+- <<: *enterprise-windows-required-template
+  name: enterprise-windows-all-feature-flags-required
   display_name: "! Enterprise Windows (all feature flags)"
   batchtime: 240 # 4 hours
   expansions:
@@ -9575,7 +9576,7 @@ buildvariants:
     max_sub_suites: 5
     large_distro_name: windows-vsCurrent-large
     test_flags: >-
-        --runDisabledFeatureFlagTests
+        --runAllFeatureFlagTests
         --excludeWithAnyTags=incompatible_with_windows_tls
   tasks:
     - name: compile_and_archive_dist_test_then_package_TG
@@ -9585,10 +9586,10 @@ buildvariants:
       distros:
         - windows-vsCurrent-xlarge
     - name: burn_in_tests_gen
-    - name: buildscripts_test
     - name: noPassthrough_gen
     - name: powercycle_kill_mongod_smoke
 # Disabling as the following tests are not aware of feature flags.
+#    - name: buildscripts_test
 #    - name: server_discovery_and_monitoring_json_test_TG
 #    - name: server_selection_json_test_TG
 #    - name: compile_run_and_archive_dbtest_TG
@@ -9681,7 +9682,7 @@ buildvariants:
     max_sub_suites: 3
     large_distro_name: windows-vsCurrent-large
     test_flags: >-
-        --runDisabledFeatureFlagTests
+        --runAllFeatureFlagTests
         --excludeWithAnyTags=incompatible_with_windows_tls
 
 - <<: *enterprise-windows-nopush-template
@@ -11364,7 +11365,7 @@ buildvariants:
     multiversion_architecture: s390x
     multiversion_edition: enterprise
     test_flags: >-
-        --runDisabledFeatureFlagTests
+        --runAllFeatureFlagTests
   tasks:
   - name: compile_test_and_package_serial_TG
     distros:
@@ -12066,7 +12067,7 @@ buildvariants:
     scons_cache_scope: shared
     exec_timeout_secs: 14400 # 3 hour timeout
     test_flags: >-
-        --runDisabledFeatureFlagTests
+        --runAllFeatureFlagTests
   tasks:
   - name: compile_test_and_package_serial_TG
   - name: compile_benchmarks
@@ -12219,7 +12220,7 @@ buildvariants:
     compile_flags: --variables-files=etc/scons/mongodbtoolchain_v3_clang.vars --dbg=on --opt=on --sanitize=undefined --ssl --ocsp-stapling=off --enable-free-mon=on -j$(grep -c ^processor /proc/cpuinfo)
     test_flags: >-
         --excludeWithAnyTags=requires_ocsp_stapling
-        --runDisabledFeatureFlagTests
+        --runAllFeatureFlagTests
     multiversion_platform: ubuntu1804
     multiversion_edition: enterprise
     resmoke_jobs_factor: 0.3  # Avoid starting too many mongod's under UBSAN build.
@@ -12317,7 +12318,7 @@ buildvariants:
     compile_flags: --variables-files=etc/scons/mongodbtoolchain_v3_clang.vars --dbg=on --opt=on --allocator=system --sanitize=undefined,address --ssl --ocsp-stapling=off -j$(grep -c ^processor /proc/cpuinfo) --link-model=dynamic
     test_flags: >-
         --excludeWithAnyTags=requires_ocsp_stapling
-        --runDisabledFeatureFlagTests
+        --runAllFeatureFlagTests
     resmoke_jobs_factor: 0.3  # Avoid starting too many mongod's under {A,UB}SAN build.
     hang_analyzer_dump_core: false
     scons_cache_scope: shared
