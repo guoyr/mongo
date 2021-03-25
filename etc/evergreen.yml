@@ -9555,8 +9555,7 @@ buildvariants:
       - windows-vsCurrent-xlarge
   - name: unittest_shell_hang_analyzer_gen
 
-- <<: *enterprise-windows-required-template
-  name: enterprise-windows-all-feature-flags-required
+- name: enterprise-windows-all-feature-flags-required
   display_name: "! Enterprise Windows (all feature flags)"
   batchtime: 240 # 4 hours
   expansions:
@@ -9578,6 +9577,24 @@ buildvariants:
     test_flags: >-
         --runDisabledFeatureFlagTests
         --excludeWithAnyTags=incompatible_with_windows_tls
+  tasks:
+    - name: compile_and_archive_dist_test_then_package_TG
+      distros:
+        - windows-vsCurrent-xlarge
+    - name: compile_build_tools_next_TG
+      distros:
+        - windows-vsCurrent-xlarge
+    - name: burn_in_tests_gen
+    - name: buildscripts_test
+    - name: noPassthrough_gen
+    - name: powercycle_kill_mongod_smoke
+# Disabling as the following tests are not aware of feature flags.
+#    - name: server_discovery_and_monitoring_json_test_TG
+#    - name: server_selection_json_test_TG
+#    - name: compile_run_and_archive_dbtest_TG
+#      distros:
+#        - windows-vsCurrent-xlarge
+#    - name: unittest_shell_hang_analyzer_gen
 
 - &enterprise-windows-suggested-template
   name: enterprise-windows-suggested
