@@ -6,12 +6,27 @@ This pattern enables the associated class to be looked up later by using
 its name.
 """
 
+import threading
+from contextlib import contextmanager
 from buildscripts.resmokelib.utils import default_if_none
 
 # Specifying 'LEAVE_UNREGISTERED' as the "REGISTERED_NAME" attribute will cause the class to be
 # omitted from the registry. This is particularly useful for base classes that define an interface
 # or common functionality, and aren't intended to be constructed explicitly.
 LEAVE_UNREGISTERED = object()
+
+GLOBAL_SUFFIX = ""
+SUFFIX_LOCK = threading.Lock()
+
+
+@contextmanager
+def suffix(suffix):
+    """Set a global suffix that's postpended to registered names."""
+    global GLOBAL_SUFFIX
+    GLOBAL_SUFFIX = suffix
+    with SUFFIX_LOCK:
+        yield suffix
+        GLOBAL_SUFFIX = ""
 
 
 def make_registry_metaclass(registry_store, base_metaclass=None):
@@ -47,11 +62,12 @@ def make_registry_metaclass(registry_store, base_metaclass=None):
             cls = base_metaclass.__new__(mcs, class_name, base_classes, class_dict)
 
             if registered_name is not LEAVE_UNREGISTERED:
-                if registered_name in registry_store:
+                name_to_register = f"{registered_name}{GLOBAL_SUFFIX}"
+                if name_to_register in registry_store:
                     raise ValueError(
                         "The name %s is already registered; a different value for the"
                         " 'REGISTERED_NAME' attribute must be chosen" % (registered_name))
-                registry_store[registered_name] = cls
+                registry_store[name_to_register] = cls
 
             return cls
 

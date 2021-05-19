@@ -73,7 +73,7 @@ class TenantMigrationFixture(interface.Fixture):  # pylint: disable=too-many-ins
                 mongod_options["replSet"] = rs_name
 
                 self.replica_sets.append(
-                    interface.make_fixture(
+                    self.fixturelib.make_fixture(
                         "ReplicaSetFixture", self.logger, self.job_num,
                         mongod_options=mongod_options, preserve_dbpath=self.preserve_dbpath,
                         num_nodes=self.num_nodes_per_replica_set, auth_options=self.auth_options,

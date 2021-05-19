@@ -295,7 +295,7 @@ class ShardedClusterFixture(interface.Fixture):  # pylint: disable=too-many-inst
         mongod_options["replSet"] = ShardedClusterFixture._CONFIGSVR_REPLSET_NAME
         mongod_options["storageEngine"] = "wiredTiger"
 
-        return interface.make_fixture(
+        return self.fixturelib.make_fixture(
             "ReplicaSetFixture", mongod_logger, self.job_num, mongod_options=mongod_options,
             mongod_executable=self.mongod_executable, preserve_dbpath=preserve_dbpath,
             num_nodes=num_nodes, auth_options=auth_options, mixed_bin_versions=None,
@@ -331,7 +331,7 @@ class ShardedClusterFixture(interface.Fixture):  # pylint: disable=too-many-inst
         mongod_options["dbpath"] = os.path.join(self._dbpath_prefix, "shard{}".format(index))
         mongod_options["replSet"] = ShardedClusterFixture._SHARD_REPLSET_NAME_PREFIX + str(index)
 
-        return interface.make_fixture(
+        return self.fixturelib.make_fixture(
             "ReplicaSetFixture", mongod_logger, self.job_num,
             mongod_executable=self.mongod_executable, mongod_options=mongod_options,
             preserve_dbpath=preserve_dbpath, num_nodes=num_rs_nodes_per_shard,

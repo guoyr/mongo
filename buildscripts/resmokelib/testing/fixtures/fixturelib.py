@@ -7,6 +7,7 @@ from buildscripts.resmokelib import utils
 from buildscripts.resmokelib import logging
 from buildscripts.resmokelib.utils.history import make_historic as _make_historic
 from buildscripts.resmokelib.testing.fixtures import interface
+from buildscripts.resmokelib.testing.fixtures import builder
 from buildscripts.resmokelib.multiversionconstants import LAST_LTS_MONGOD_BINARY, LAST_LTS_MONGOS_BINARY
 
 
@@ -38,6 +39,9 @@ class FixtureLib(object):
     ############
     # Programs #
     ############
+
+    def make_fixture(self, class_name, logger, job_num, *args, **kwargs):
+        return builder.make_fixture(class_name, logger, job_num, *args, **kwargs)
 
     def mongod_program(self, logger, job_num, executable, process_kwargs, mongod_options):  # pylint: disable=too-many-arguments
         """
