@@ -23,7 +23,7 @@ SUFFIX_LOCK = threading.Lock()
 def suffix(suffix):
     """Set a global suffix that's postpended to registered names."""
     global GLOBAL_SUFFIX
-    GLOBAL_SUFFIX = "-" + suffix
+    GLOBAL_SUFFIX = suffix
     with SUFFIX_LOCK:
         yield suffix
         GLOBAL_SUFFIX = ""
