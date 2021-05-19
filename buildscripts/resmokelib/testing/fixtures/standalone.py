@@ -10,6 +10,7 @@ import pymongo
 import pymongo.errors
 
 import buildscripts.resmokelib.testing.fixtures.interface as interface
+from buildscripts.resmokelib.core import network
 
 
 class MongoDFixture(interface.Fixture):
@@ -49,7 +50,7 @@ class MongoDFixture(interface.Fixture):
             self.preserve_dbpath = preserve_dbpath
 
         self.mongod = None
-        self.port = None
+        self.port = network.PortAllocator.next_fixture_port(job_num)
 
     def setup(self):
         """Set up the mongod."""
@@ -63,7 +64,9 @@ class MongoDFixture(interface.Fixture):
             pass
 
         launcher = MongodLauncher(self.fixturelib)
-        mongod, self.port = launcher.launch_mongod_program(self.logger, self.job_num,
+        # Second return val is the port, which we ignore because we explicitly created the port above.
+        # The port is used to set other mongod_option's here: https://github.com/mongodb/mongo/blob/532a6a8ae7b8e7ab5939e900759c00794862963d/buildscripts/resmokelib/testing/fixtures/replicaset.py#L136
+        mongod, _ = launcher.launch_mongod_program(self.logger, self.job_num,
                                                            executable=self.mongod_executable,
                                                            mongod_options=self.mongod_options)
         self.mongod_options["port"] = self.port

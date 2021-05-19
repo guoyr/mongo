@@ -3169,7 +3169,7 @@ tasks:
       suite: initial_sync_multiversion_fuzzer
       resmoke_args: "--mongodSetParameters='{logComponentVerbosity: {command: 2}}'"
       name: initial_sync_multiversion_fuzzer
-      task_path_suffix: "/data/multiversion"
+      task_pathtask_path_suffix_suffix: "/data/multiversion"
 
 ## initial sync generational fuzzer ##
 - <<: *jstestfuzz_template

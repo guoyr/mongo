@@ -89,10 +89,9 @@ def get_multiversion_resmoke_args(is_sharded: bool) -> str:
     return "--numReplSetNodes=3 --linearChain=on "
 
 
-def get_backports_required_hash_for_shell_version(task_path_suffix, mongo_shell_path=None):
+def get_backports_required_hash_for_shell_version(mongo_shell_path=None):
     """Parse the last-lts shell binary to get the commit hash."""
-    shell_exec = os.path.join(task_path_suffix, mongo_shell_path)
-    shell_version = check_output([shell_exec, "--version"]).decode('utf-8')
+    shell_version = check_output([mongo_shell_path, "--version"]).decode('utf-8')
     for line in shell_version.splitlines():
         if "gitVersion" in line:
             version_line = line.split(':')[1]
@@ -375,11 +374,9 @@ def run_generate_tasks(expansion_file: str, evergreen_config: Optional[str] = No
 
 
 @main.command("generate-exclude-tags")
-@click.option("--task-path-suffix", type=str, required=True,
-              help="The directory in which multiversion binaries are stored.")
 @click.option("--output", type=str, default=os.path.join(CONFIG_DIR, EXCLUDE_TAGS_FILE),
               show_default=True, help="Where to output the generated tags.")
-def generate_exclude_yaml(task_path_suffix: str, output: str) -> None:
+def generate_exclude_yaml(output: str) -> None:
     # pylint: disable=too-many-locals
     """
     Create a tag file associating multiversion tests to tags for exclusion.
@@ -400,7 +397,7 @@ def generate_exclude_yaml(task_path_suffix: str, output: str) -> None:
     # Get the state of the backports_required_for_multiversion_tests.yml file for the last-lts
     # binary we are running tests against. We do this by using the commit hash from the last-lts
     # mongo shell executable.
-    last_lts_commit_hash = get_backports_required_hash_for_shell_version(task_path_suffix, mongo_shell_path=LAST_LTS_MONGO_BINARY)
+    last_lts_commit_hash = get_backports_required_hash_for_shell_version(mongo_shell_path=LAST_LTS_MONGO_BINARY)
 
     # Get the yaml contents from the last-lts commit.
     backports_required_last_lts = get_last_lts_yaml(last_lts_commit_hash)

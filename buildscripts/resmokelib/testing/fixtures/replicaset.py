@@ -122,16 +122,6 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
         # Version-specific options should be set in get_version_specific_options_for_mongod()
         # to avoid options for old versions being applied to new Replicaset fixtures.
         for i in range(self.num_nodes):
-            cur_node = self.nodes[i]
-            cur_node.mongod_options["dbpath"] = os.path.join(self._dbpath_prefix, "node{}".format(i))
-            cur_node.mongod_options["set_parameters"] = cur_node.mongod_options.get("set_parameters", self.fixturelib.make_historic({})).copy()
-
-            if self.linear_chain and i > 0:
-                self.mongod_options["set_parameters"][
-                    "failpoint.forceSyncSourceCandidate"] = self.fixturelib.make_historic({
-                    "mode": "alwaysOn",
-                    "data": {"hostAndPort": self.nodes[i - 1].get_internal_connection_string()}
-                })
             self.nodes[i].setup()
 
         if self.initial_sync_node:
@@ -598,10 +588,18 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
         """Install a mongod node. Called by a builder."""
         self.nodes.append(mongod)
 
-    # TODO: Add a branching ticket to remove version-specific options for mongod/s
-    def get_version_specific_options_for_mongod(self, index):
+    def get_options_for_mongod(self, index):
         """Return options that may be passed to a mongod."""
         mongod_options = self.mongod_options.copy()
+
+        mongod_options["dbpath"] = os.path.join(self._dbpath_prefix, "node{}".format(index))
+        mongod_options["set_parameters"] = mongod_options.get("set_parameters", self.fixturelib.make_historic({})).copy()
+
+        if self.linear_chain and index > 0:
+            self.mongod_options["set_parameters"]["failpoint.forceSyncSourceCandidate"] = self.fixturelib.make_historic({
+                "mode": "alwaysOn",
+                "data": {"hostAndPort": self.nodes[index - 1].get_internal_connection_string()}
+            })
         return mongod_options
 
     def get_logger_for_mongod(self, index):
