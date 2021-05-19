@@ -10,7 +10,6 @@ import pymongo
 import pymongo.errors
 
 import buildscripts.resmokelib.testing.fixtures.interface as interface
-from buildscripts.resmokelib.core import network
 
 
 class MongoDFixture(interface.Fixture):
@@ -50,7 +49,7 @@ class MongoDFixture(interface.Fixture):
             self.preserve_dbpath = preserve_dbpath
 
         self.mongod = None
-        self.port = network.PortAllocator.next_fixture_port(job_num)
+        self.port = fixturelib.get_next_port(job_num)
 
     def setup(self):
         """Set up the mongod."""

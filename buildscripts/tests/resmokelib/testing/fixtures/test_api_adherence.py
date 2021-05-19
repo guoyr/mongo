@@ -12,13 +12,11 @@ ALLOWED_IMPORTS = [
     "buildscripts.resmokelib.testing.fixtures.fixturelib",
     "buildscripts.resmokelib.multiversionconstants",
     "buildscripts.resmokelib.utils.registry",
-    "buildscripts.resmokelib.utils.history",
-    "buildscripts.resmokelib.config",
-    "buildscripts.resmokelib.utils",
-    "buildscripts.resmokelib",
 ]
 FIXTURE_PATH = os.path.normpath("buildscripts/resmokelib/testing/fixtures")
-IGNORED_FILES = ["__init__.py", "fixturelib.py"]
+
+# These files are not part of the fixure API.
+IGNORED_FILES = ["__init__.py", "fixturelib.py", "_builder.py"]
 
 
 class AdherenceChecker(ast.NodeVisitor):

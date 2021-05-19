@@ -5,9 +5,9 @@ from buildscripts.resmokelib import core
 from buildscripts.resmokelib import errors
 from buildscripts.resmokelib import utils
 from buildscripts.resmokelib import logging
+from buildscripts.resmokelib.core import network
 from buildscripts.resmokelib.utils.history import make_historic as _make_historic
-from buildscripts.resmokelib.testing.fixtures import interface
-from buildscripts.resmokelib.testing.fixtures import builder
+from buildscripts.resmokelib.testing.fixtures import _builder
 from buildscripts.resmokelib.multiversionconstants import LAST_LTS_MONGOD_BINARY, LAST_LTS_MONGOS_BINARY
 
 
@@ -41,7 +41,7 @@ class FixtureLib(object):
     ############
 
     def make_fixture(self, class_name, logger, job_num, *args, **kwargs):
-        return builder.make_fixture(class_name, logger, job_num, *args, **kwargs)
+        return _builder.make_fixture(class_name, logger, job_num, *args, **kwargs)
 
     def mongod_program(self, logger, job_num, executable, process_kwargs, mongod_options):  # pylint: disable=too-many-arguments
         """
@@ -89,6 +89,9 @@ class FixtureLib(object):
     def get_config(self):
         """Return an objects whose attributes are fixture config values."""
         return _FixtureConfig()
+
+    def get_next_port(self, job_num):
+        return network.PortAllocator.next_fixture_port(job_num)
 
 
 class _FixtureConfig(object):  # pylint: disable=too-many-instance-attributes
