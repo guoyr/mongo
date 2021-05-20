@@ -50,6 +50,7 @@ class MongoDFixture(interface.Fixture):
 
         self.mongod = None
         self.port = fixturelib.get_next_port(job_num)
+        self.mongod_options["port"] = self.port
 
     def setup(self):
         """Set up the mongod."""
@@ -68,7 +69,6 @@ class MongoDFixture(interface.Fixture):
         mongod, _ = launcher.launch_mongod_program(self.logger, self.job_num,
                                                            executable=self.mongod_executable,
                                                            mongod_options=self.mongod_options)
-        self.mongod_options["port"] = self.port
         try:
             self.logger.info("Starting mongod on port %d...\n%s", self.port, mongod.as_command())
             mongod.start()

@@ -211,17 +211,6 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
             # nodes of different binary versions to the replica set.
             client.admin.command({"setFeatureCompatibilityVersion": self.fcv})
 
-        # Legacy multiversion line
-        if self.mixed_bin_versions is not None:
-            if self.mixed_bin_versions[0] == "new":
-                fcv_response = client.admin.command(
-                    {"getParameter": 1, "featureCompatibilityVersion": 1})
-                fcv = fcv_response["featureCompatibilityVersion"]["version"]
-                if fcv != ReplicaSetFixture._LATEST_FCV:
-                    msg = (("Server returned FCV{} when we expected FCV{}.").format(
-                        fcv, ReplicaSetFixture._LATEST_FCV))
-                    raise self.fixturelib.ServerFailure(msg)
-
             # Initiating a replica set with a single node will use "latest" FCV. This will
             # cause IncompatibleServerVersion errors if additional "last-lts" binary version
             # nodes are subsequently added to the set, since such nodes cannot set their FCV to
