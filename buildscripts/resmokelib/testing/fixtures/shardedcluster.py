@@ -402,7 +402,9 @@ class _MongoSFixture(interface.Fixture):
             self.fixturelib.default_if_none(mongos_options, {})).copy()
 
         self.mongos = None
-        self.port = None
+        self.port = fixturelib.get_next_port(job_num)
+        self.mongos_options["port"] = self.port
+
         self._dbpath_prefix = dbpath_prefix
 
     def setup(self):
@@ -413,7 +415,7 @@ class _MongoSFixture(interface.Fixture):
             self.mongos_options["logappend"] = ""
 
         launcher = MongosLauncher(self.fixturelib)
-        mongos, self.port = launcher.launch_mongos_program(self.logger, self.job_num,
+        mongos, _ = launcher.launch_mongos_program(self.logger, self.job_num,
                                                            executable=self.mongos_executable,
                                                            mongos_options=self.mongos_options)
         self.mongos_options["port"] = self.port
