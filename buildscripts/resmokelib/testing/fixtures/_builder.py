@@ -105,7 +105,8 @@ class ReplSetBuilder(FixtureBuilder):
                 ]
                 classes = [latest_class for x in range(num_nodes)]
             else:
-                load_version(version_path_suffix=lts_class_suffix, shell_path=multiversionconstants.LAST_LTS_MONGO_BINARY)
+                load_version(version_path_suffix=lts_class_suffix,
+                             shell_path=multiversionconstants.LAST_LTS_MONGO_BINARY)
 
                 if not is_config_svr:
                     executables = [
@@ -146,7 +147,7 @@ class ReplSetBuilder(FixtureBuilder):
 
         return replset
 
-    def _new_mongod(self, replset, index, executable, mongod_class): # TODO Not a class method
+    def _new_mongod(self, replset, index, executable, mongod_class):  # TODO Not a class method
         """Return a standalone.MongoDFixture configured to be used as replica-set member."""
         mongod_logger = replset.get_logger_for_mongod(index)
         mongod_options = replset.get_options_for_mongod(index)
@@ -163,7 +164,8 @@ def load_version(version_path_suffix=None, shell_path=None):
         retrieve_dir = os.path.relpath(os.path.join(RETRIEVE_DIR, version_path_suffix))
         if not os.path.exists(retrieve_dir):
             try:
-                commit = gen_tests.get_backports_required_hash_for_shell_version(mongo_shell_path=shell_path)
+                commit = gen_tests.get_backports_required_hash_for_shell_version(
+                    mongo_shell_path=shell_path)
             except FileNotFoundError as e:
                 print("Error running the mongo shell, please ensure it's in your $PATH: ", e)
                 raise

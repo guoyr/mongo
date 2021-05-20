@@ -298,7 +298,8 @@ class ShardedClusterFixture(interface.Fixture):  # pylint: disable=too-many-inst
         return self.fixturelib.make_fixture(
             "ReplicaSetFixture", mongod_logger, self.job_num, mongod_options=mongod_options,
             mongod_executable=self.mongod_executable, preserve_dbpath=preserve_dbpath,
-            num_nodes=num_nodes, auth_options=auth_options, mixed_bin_versions=None,
+            num_nodes=num_nodes, auth_options=auth_options,
+            mixed_bin_versions=self.fixturelib.get_config().CONFIG_SVR_MIXED_BIN_VERSIONS,
             replset_config_options=replset_config_options,
             shard_logging_prefix=shard_logging_prefix, **configsvr_options)
 
@@ -416,8 +417,8 @@ class _MongoSFixture(interface.Fixture):
 
         launcher = MongosLauncher(self.fixturelib)
         mongos, _ = launcher.launch_mongos_program(self.logger, self.job_num,
-                                                           executable=self.mongos_executable,
-                                                           mongos_options=self.mongos_options)
+                                                   executable=self.mongos_executable,
+                                                   mongos_options=self.mongos_options)
         self.mongos_options["port"] = self.port
         try:
             self.logger.info("Starting mongos on port %d...\n%s", self.port, mongos.as_command())

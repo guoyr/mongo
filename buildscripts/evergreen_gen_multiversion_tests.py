@@ -19,7 +19,8 @@ import structlog
 from shrub.v2 import ShrubProject, FunctionCall, Task, TaskDependency, BuildVariant, ExistingTask
 from evergreen.api import RetryingEvergreenApi, EvergreenApi
 
-from buildscripts.resmokelib.multiversionconstants import (LAST_LTS_MONGO_BINARY, LAST_CONTINUOUS_MONGO_BINARY, REQUIRES_FCV_TAG)
+from buildscripts.resmokelib.multiversionconstants import (
+    LAST_LTS_MONGO_BINARY, LAST_CONTINUOUS_MONGO_BINARY, REQUIRES_FCV_TAG)
 import buildscripts.util.taskname as taskname
 from buildscripts.util.fileops import write_file_to_dir, read_yaml_file
 import buildscripts.evergreen_generate_resmoke_tasks as generate_resmoke
@@ -397,7 +398,8 @@ def generate_exclude_yaml(output: str) -> None:
     # Get the state of the backports_required_for_multiversion_tests.yml file for the last-lts
     # binary we are running tests against. We do this by using the commit hash from the last-lts
     # mongo shell executable.
-    last_lts_commit_hash = get_backports_required_hash_for_shell_version(mongo_shell_path=LAST_LTS_MONGO_BINARY)
+    last_lts_commit_hash = get_backports_required_hash_for_shell_version(
+        mongo_shell_path=LAST_LTS_MONGO_BINARY)
 
     # Get the yaml contents from the last-lts commit.
     backports_required_last_lts = get_last_lts_yaml(last_lts_commit_hash)

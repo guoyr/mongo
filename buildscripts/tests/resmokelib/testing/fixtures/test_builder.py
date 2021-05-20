@@ -16,7 +16,10 @@ class TestFixtureBuilder(unittest.TestCase):
     def test_retrieve_fixtures(self):
         """function to test retrieve_fixtures"""
         dirpath = os.path.join("build", "multiversionfixture")
-        expected_standalone = os.path.join("buildscripts","tests", "resmokelib","testing","fixtures", "retrieved_fixture.txt")
+        expected_standalone = os.path.join("buildscripts", "tests", "resmokelib", "testing",
+                                           "fixtures", "retrieved_fixture.txt")
         _builder.retrieve_fixtures(dirpath, TEST_COMMIT)
         retrieved_standalone = os.path.join(dirpath, "standalone.py")
-        self.assertTrue(filecmp.cmpfiles(retrieved_standalone, expected_standalone, ["standalone.py", "retrieved_fixture.txt"], shallow=False))
+        self.assertTrue(
+            filecmp.cmpfiles(retrieved_standalone, expected_standalone,
+                             ["standalone.py", "retrieved_fixture.txt"], shallow=False))

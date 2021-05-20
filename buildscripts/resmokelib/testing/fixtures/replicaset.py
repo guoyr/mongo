@@ -132,7 +132,8 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
         # TODO: Don't delete steadystateconstraint options when backporting to 5.0.
         if self.mixed_bin_versions:
             for i in range(self.num_nodes):
-                print("node[i] version: " + self.nodes[i].mongod_executable + "mixed_bin_version[i]: " + self.mixed_bin_versions[i])
+                print("node[i] version: " + self.nodes[i].mongod_executable +
+                      "mixed_bin_version[i]: " + self.mixed_bin_versions[i])
                 if self.nodes[i].mongod_executable != self.mixed_bin_versions[i]:
                     msg = (f"Executable of node{i}: {self.nodes[i].mongod_executable} does not "
                            f"match the executable assigned by mixedBinVersions: "
@@ -200,24 +201,12 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
         self._await_primary()
 
         if self.fcv is not None:
-            fcv_response = client.admin.command(
-                {"getParameter": 1, "featureCompatibilityVersion": 1})
-            fcv = fcv_response["featureCompatibilityVersion"]["version"]
-
-            # Initiating a replica set with a single node will use "latest" FCV. This will
-            # cause IncompatibleServerVersion errors if additional "last-lts" binary version
-            # nodes are subsequently added to the set, since such nodes cannot set their FCV to
-            # "latest". Therefore, we make sure the primary is of the correct FCV before adding in
-            # nodes of different binary versions to the replica set.
-            client.admin.command({"setFeatureCompatibilityVersion": self.fcv})
-
             # Initiating a replica set with a single node will use "latest" FCV. This will
             # cause IncompatibleServerVersion errors if additional "last-lts" binary version
             # nodes are subsequently added to the set, since such nodes cannot set their FCV to
             # "latest". Therefore, we make sure the primary is "last-lts" FCV before adding in
             # nodes of different binary versions to the replica set.
-            client.admin.command(
-                {"setFeatureCompatibilityVersion": ReplicaSetFixture._LAST_LTS_FCV})
+            client.admin.command({"setFeatureCompatibilityVersion": self.fcv})
 
         if self.nodes[1:]:
             # Wait to connect to each of the secondaries before running the replSetReconfig
@@ -582,13 +571,16 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
         mongod_options = self.mongod_options.copy()
 
         mongod_options["dbpath"] = os.path.join(self._dbpath_prefix, "node{}".format(index))
-        mongod_options["set_parameters"] = mongod_options.get("set_parameters", self.fixturelib.make_historic({})).copy()
+        mongod_options["set_parameters"] = mongod_options.get("set_parameters",
+                                                              self.fixturelib.make_historic(
+                                                                  {})).copy()
 
         if self.linear_chain and index > 0:
-            self.mongod_options["set_parameters"]["failpoint.forceSyncSourceCandidate"] = self.fixturelib.make_historic({
-                "mode": "alwaysOn",
-                "data": {"hostAndPort": self.nodes[index - 1].get_internal_connection_string()}
-            })
+            self.mongod_options["set_parameters"][
+                "failpoint.forceSyncSourceCandidate"] = self.fixturelib.make_historic({
+                    "mode": "alwaysOn",
+                    "data": {"hostAndPort": self.nodes[index - 1].get_internal_connection_string()}
+                })
         return mongod_options
 
     def get_logger_for_mongod(self, index):
@@ -657,6 +649,7 @@ class ReplicaSetFixture(interface.ReplFixture):  # pylint: disable=too-many-inst
     def write_historic(self, obj):
         """Convert the obj to a record to track history"""
         self.fixturelib.make_historic(obj)
+
 
 def get_last_optime(client, fixturelib):
     """Get the latest optime.
