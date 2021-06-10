@@ -3063,7 +3063,7 @@ tasks:
       suite: initial_sync_multiversion_fuzzer
       resmoke_args: "--mongodSetParameters='{logComponentVerbosity: {command: 2}}'"
       name: initial_sync_multiversion_fuzzer
-      task_path_suffix: "/data/multiversion"
+      require_multiversion: true
 
 ## initial sync generational fuzzer ##
 - <<: *jstestfuzz_template
@@ -3096,7 +3096,7 @@ tasks:
       resmoke_args: "--mongodSetParameters='{logComponentVerbosity: {command: 2}}'"
       npm_command: agg-fuzzer
       name: aggregation_multiversion_fuzzer
-      task_path_suffix: "/data/multiversion"
+      require_multiversion: true
 
 ## Standalone generational fuzzer for multiversion aggregation expressions ##
 - <<: *jstestfuzz_template
@@ -3115,7 +3115,7 @@ tasks:
       resmoke_args: "--mongodSetParameters='{logComponentVerbosity: {command: 2}}'"
       npm_command: agg-expr-fuzzer
       name: aggregation_expression_multiversion_fuzzer
-      task_path_suffix: "/data/multiversion"
+      require_multiversion: true
 
 ## Standalone generational fuzzer for checking optimized and unoptimized expression equivalence
 - <<: *jstestfuzz_template
@@ -3245,7 +3245,7 @@ tasks:
       suite: generational_fuzzer
       resmoke_args: "--mongodSetParameters='{logComponentVerbosity: {command: 2}}'"
       name: update_fuzzer
-      task_path_suffix: "/data/multiversion"
+      require_multiversion: true
 
 ## jstestfuzz replication update generational fuzzer ##
 - <<: *jstestfuzz_template
@@ -3261,7 +3261,7 @@ tasks:
       suite: generational_fuzzer_replication
       resmoke_args: "--mongodSetParameters='{logComponentVerbosity: {command: 2}}'"
       name: update_fuzzer_replication
-      task_path_suffix: "/data/multiversion"
+      require_multiversion: true
 
 ## rollback multiversion fuzzer ##
 - <<: *jstestfuzz_template
@@ -3279,7 +3279,7 @@ tasks:
       # index build commit quorum.
       resmoke_args: "--mongodSetParameters='{logComponentVerbosity: {command: 2}, enableIndexBuildCommitQuorum: false}'"
       name: rollback_multiversion_fuzzer
-      task_path_suffix: "/data/multiversion"
+      require_multiversion: true
 
 ## rollback generational fuzzer ##
 - <<: *jstestfuzz_template
@@ -3617,8 +3617,7 @@ tasks:
       resmoke_args: "--storageEngine=wiredTiger --mongodSetParameters='{logComponentVerbosity: {command: 2}}'"
       suite: jstestfuzz_replication
       is_jstestfuzz: true
-      use_multiversion: /data/multiversion
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
       npm_command: jstestfuzz
 
 ## jstestfuzz initial sync replica set ##
@@ -3674,8 +3673,7 @@ tasks:
       resmoke_args: "--storageEngine=wiredTiger --mongodSetParameters='{logComponentVerbosity: {command: 2}}'"
       suite: jstestfuzz_sharded
       is_jstestfuzz: true
-      use_multiversion: /data/multiversion
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
       npm_command: jstestfuzz
 
 ## jstestfuzz sharded cluster causal consistency ##
@@ -3803,7 +3801,7 @@ tasks:
     vars:
       suite: replica_sets_jscore_passthrough
       resmoke_args: --storageEngine=wiredTiger --includeWithAnyTags=multiversion_sanity_check
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
 
 - name: replica_sets_jscore_multiversion_passthrough_gen
   tags: ["multiversion_passthrough"]
@@ -3812,7 +3810,7 @@ tasks:
     vars:
       suite: replica_sets_jscore_passthrough
       resmoke_args: --storageEngine=wiredTiger
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
 
 # Check that the mutational fuzzer can parse JS files modified in a patch build.
 - name: lint_fuzzer_sanity_patch
@@ -4043,7 +4041,7 @@ tasks:
     vars:
       suite: change_streams
       resmoke_args: --storageEngine=wiredTiger
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
 
 - <<: *task_template
   name: change_streams_update_v1_oplog
@@ -4108,7 +4106,7 @@ tasks:
     vars:
       suite: change_streams_sharded_collections_passthrough
       resmoke_args: --storageEngine=wiredTiger
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
 
 - <<: *task_template
   name: change_streams_whole_db_passthrough
@@ -4745,14 +4743,14 @@ tasks:
   - func: "generate resmoke tasks"
     vars:
       resmoke_args: "--storageEngine=wiredTiger"
-      use_multiversion: /data/multiversion
+      require_multiversion: true
 
 - name: multiversion_gen
   commands:
   - func: "generate resmoke tasks"
     vars:
       resmoke_args: "--storageEngine=wiredTiger"
-      use_multiversion: /data/multiversion
+      require_multiversion: true
 
 # Tests the runFeatureFlagMultiversionTest helper.
 # This requires the 'featureFlagToaster' and 'featureFlagSpoon' parameters to be set to true on
@@ -4762,7 +4760,7 @@ tasks:
   - func: "generate resmoke tasks"
     vars:
       resmoke_args: "--storageEngine=wiredTiger"
-      use_multiversion: /data/multiversion
+      require_multiversion: true
 
 - name: unittest_shell_hang_analyzer_gen
   commands:
@@ -4833,7 +4831,7 @@ tasks:
     vars:
       suite: sharded_collections_jscore_passthrough
       resmoke_args: --storageEngine=wiredTiger
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
 
 - <<: *task_template
   name: sharding_jscore_passthrough
@@ -4852,7 +4850,7 @@ tasks:
     vars:
       suite: sharding_jscore_passthrough
       resmoke_args: --storageEngine=wiredTiger
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
 
 - name: sharding_api_version_jscore_passthrough_gen
   tags: ["sharding", "jscore"]
@@ -5024,7 +5022,7 @@ tasks:
     vars:
       suite: concurrency_replication
       resmoke_args: --storageEngine=wiredTiger
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
 
 - name: concurrency_replication_causal_consistency_gen
   tags: ["concurrency", "repl", "large", "non_live_record"]
@@ -5107,7 +5105,7 @@ tasks:
     vars:
       suite: concurrency_sharded_replication
       resmoke_args: --storageEngine=wiredTiger
-      task_path_suffix: /data/multiversion
+      require_multiversion: true
 
 - name: concurrency_sharded_replication_with_balancer_gen
   tags: ["concurrency", "common", "read_concern_maj", "large", "sharded"]
@@ -5422,7 +5420,7 @@ tasks:
   - func: "generate randomized multiversion tasks"
     vars:
       resmoke_args: --storageEngine=wiredTiger --tagFile=generated_resmoke_config/multiversion_exclude_tags.yml
-      use_multiversion: /data/multiversion
+      require_multiversion: true
       suite: replica_sets_multiversion
 
 - <<: *task_template
@@ -5448,7 +5446,7 @@ tasks:
     vars:
       use_large_distro: "true"
       resmoke_args: --storageEngine=wiredTiger --tagFile=generated_resmoke_config/multiversion_exclude_tags.yml
-      use_multiversion: /data/multiversion
+      require_multiversion: true
       suite: sharding_multiversion
 
 - name: sharding_max_mirroring_gen
@@ -5506,7 +5504,7 @@ tasks:
   - func: "generate explicit multiversion tasks"
     vars:
       use_large_distro: "true"
-      use_multiversion: /data/multiversion
+      require_multiversion: true
       resmoke_args: --tagFile=generated_resmoke_config/multiversion_exclude_tags.yml
 
 - name: sharding_update_v1_oplog_gen
