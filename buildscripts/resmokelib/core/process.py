@@ -117,14 +117,28 @@ class Process(object):
         close_fds = (sys.platform != "win32")
 
         with _POPEN_LOCK:
-            self._process = subprocess.Popen(
-                self.args, bufsize=buffer_size, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                close_fds=close_fds, env=self.env, creationflags=creation_flags, cwd=self._cwd)
+
+            # Record unittests directly since resmoke doesn't not interact with them and they can finish
+            # too quickly for the recorder to have a chance at attaching.
+            recorder_args = []
+            if _config.UNDO_RECORDER_PATH is not None and self.args[0].endswith("_test"):
+                now_str = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+                recorder_output_file = "{logger}-{process}-{t}.undo".format(
+                    logger=self.logger.name.replace('/', '-'),
+                    process=os.path.basename(self.args[0]), t=now_str)
+                recorder_args = [
+                    _config.UNDO_RECORDER_PATH, "-p",
+                    str(self.pid), "-o", recorder_output_file
+                ]
+
+            self._process = subprocess.Popen(recorder_args + self.args, bufsize=buffer_size,
+                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                             close_fds=close_fds, env=self.env,
+                                             creationflags=creation_flags, cwd=self._cwd)
             self.pid = self._process.pid
 
-            if _config.UNDO_RECORDER_PATH is not None and ("mongod" in self.args[0]
-                                                           or "mongos" in self.args[0]
-                                                           or "_test" in self.args[0]):
+            if _config.UNDO_RECORDER_PATH is not None and (not self.args[0].endswith("_test")) and (
+                    "mongod" in self.args[0] or "mongos" in self.args[0]):
                 now_str = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
                 recorder_output_file = "{logger}-{process}-{pid}-{t}.undo".format(
                     logger=self.logger.name.replace('/', '-'),
