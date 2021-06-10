@@ -100,8 +100,6 @@ if [[ ${disable_unit_tests} = "false" && ! -f ${skip_tests} ]]; then
     path_value="$path_value:${task_path_suffix}"
   fi
 
-  echo $(/opt/undodb5/bin/udb --version)
-
   # The "resmoke_wrapper" expansion is used by the 'burn_in_tests' task to wrap the resmoke.py
   # invocation. It doesn't set any environment variables and should therefore come last in
   # this list of expansions.
