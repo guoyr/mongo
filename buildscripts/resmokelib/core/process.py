@@ -127,8 +127,7 @@ class Process(object):
                     logger=self.logger.name.replace('/', '-'),
                     process=os.path.basename(self.args[0]), t=now_str)
                 recorder_args = [
-                    _config.UNDO_RECORDER_PATH, "-p",
-                    str(self.pid), "-o", recorder_output_file
+                    _config.UNDO_RECORDER_PATH, "-o", recorder_output_file
                 ]
 
             self._process = subprocess.Popen(recorder_args + self.args, bufsize=buffer_size,
