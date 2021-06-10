@@ -2,12 +2,13 @@
 
 This is used to perform the actual test case.
 """
-
+import glob
 import os
 import os.path
 import unittest
 import uuid
 
+from buildscripts.resmokelib import config
 from buildscripts.resmokelib import logging
 from buildscripts.resmokelib.utils import registry
 
@@ -116,8 +117,8 @@ class ProcessTestCase(TestCase):  # pylint: disable=abstract-method
     def run_test(self):
         """Run the test."""
         try:
-            shell = self._make_process()
-            self._execute(shell)
+            proc = self._make_process()
+            self._execute(proc)
         except self.failureException:
             raise
         except:
@@ -145,3 +146,17 @@ class ProcessTestCase(TestCase):  # pylint: disable=abstract-method
     def _make_process(self):
         """Return a new Process instance that could be used to run the test or log the command."""
         raise NotImplementedError("_make_process must be implemented by TestCase subclasses")
+
+    @staticmethod
+    def _remove_recordings():
+        """Remove space-consuming recordings if test succeeded (i.e. did not throw an exception before here)."""
+        if config.UNDO_RECORDER_PATH:
+            for recording in glob.glob("*.undo"):
+                os.remove(recording)
+
+    @staticmethod
+    def _cull_recordings():
+        """Move recordings if test fails so it doesn't get deleted."""
+        if config.UNDO_RECORDER_PATH:
+            for recording in glob.glob("*.undo"):
+                os.rename(recording, recording + '.tokeep')

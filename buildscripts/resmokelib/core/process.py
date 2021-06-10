@@ -123,7 +123,8 @@ class Process(object):
             self.pid = self._process.pid
 
             if _config.UNDO_RECORDER_PATH is not None and ("mongod" in self.args[0]
-                                                           or "mongos" in self.args[0]):
+                                                           or "mongos" in self.args[0]
+                                                           or "_test" in self.args[0]):
                 now_str = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
                 recorder_output_file = "{logger}-{process}-{pid}-{t}.undo".format(
                     logger=self.logger.name.replace('/', '-'),
@@ -236,7 +237,7 @@ class Process(object):
             if recorder_return != 0:
                 raise errors.ServerFailure(
                     "UndoDB live-record did not terminate correctly. This is likely a bug with UndoDB. "
-                    "Please record the logs and notify the #server-tig Slack channel")
+                    "Please record the logs and notify the #server-testing Slack channel")
 
         if self._stdout_pipe:
             self._stdout_pipe.wait_until_finished()

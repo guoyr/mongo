@@ -1,5 +1,7 @@
 """The unittest.TestCase for C++ unit tests."""
+import os
 
+from buildscripts.resmokelib import config
 from buildscripts.resmokelib import core
 from buildscripts.resmokelib import utils
 from buildscripts.resmokelib.testing.testcases import interface
@@ -17,6 +19,23 @@ class CPPUnitTestCase(interface.ProcessTestCase):
 
         self.program_executable = program_executable
         self.program_options = utils.default_if_none(program_options, {}).copy()
+
+    def run_test(self):
+        """Run the test."""
+        try:
+            super().run_test()
+        except self.failureException:
+            if config.UNDO_RECORDER_PATH:
+                # Record the list of failed tests so we can upload them to the Evergreen task.
+                # Non-recorded tests rely on the core dump content to identify the test binaries.
+                with open("failed_recorded_tests.txt", 'a') as failure_list:
+                    failure_list.write(self.program_executable)
+                    failure_list.write("\n")
+                self.logger.exception(
+                    "Failed test run was recorded. For instructions on using the recording, "
+                    "see: https://wiki.corp.mongodb.com/display/COREENG/Time+Travel+Debugging+in+MongoDB"
+                )
+            raise
 
     def _make_process(self):
         self.program_options["job_num"] = self.fixture.job_num

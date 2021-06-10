@@ -74,7 +74,7 @@ TEST(Basic, WithReason) {
     ASSERT_EQ(copy.reason(), "reason");
 
     ASSERT_EQ(orig.code(), ErrorCodes::MaxError);
-    ASSERT_EQ(orig.reason(), "error");
+    ASSERT_EQ(orig.reason(), "error1");
 }
 
 TEST(Basic, WithContext) {
@@ -86,7 +86,7 @@ TEST(Basic, WithContext) {
     ASSERT(str::endsWith(copy.reason(), " error")) << copy.reason();
 
     ASSERT_EQ(orig.code(), ErrorCodes::MaxError);
-    ASSERT_EQ(orig.reason(), "error");
+    ASSERT_EQ(orig.reason(), "error2");
 }
 
 TEST(Cloning, Copy) {
