@@ -6,7 +6,7 @@ cd src
 set -eou pipefail
 
 # Only run on unit test tasks so we don't target mongod binaries from cores.
-if [ "${task_name}" != "run_unittests" ] && [ "${task_name}" != "run_dbtest" ]; then
+if [ "${task_name}" != "run_unittests" ] && [ "${task_name}" != "run_dbtest" ] && [ "${task_name}" != "run_unittests_with_recording" ]; then
   exit 0
 fi
 

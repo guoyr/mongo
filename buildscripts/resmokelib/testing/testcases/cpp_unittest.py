@@ -35,7 +35,12 @@ class CPPUnitTestCase(interface.ProcessTestCase):
                     "Failed test run was recorded. For instructions on using the recording, "
                     "see: https://wiki.corp.mongodb.com/display/COREENG/Time+Travel+Debugging+in+MongoDB"
                 )
+            # Archive any available recordings if there's any failure. It's possible a problem
+            # with the recorder will cause no recordings to be generated.
+            self._cull_recordings()
             raise
+        else:
+            self._remove_recordings()
 
     def _make_process(self):
         self.program_options["job_num"] = self.fixture.job_num
