@@ -135,6 +135,8 @@ if [[ ${disable_unit_tests} = "false" && ! -f ${skip_tests} ]]; then
   resmoke_exit_code=$?
   set -o errexit
 
+echo $(ls)
+
   if [[ -n "${record_with}" ]]; then
     recording_size=$(du -ch *.undo | grep total)
     echo "UndoDB produced recordings that were $recording_size (uncompressed) on disk"
@@ -162,3 +164,4 @@ if [[ ${disable_unit_tests} = "false" && ! -f ${skip_tests} ]]; then
   fi
   exit $resmoke_exit_code
 fi # end if [[ ${disable_unit_tests} && ! -f ${skip_tests|/dev/null} ]]
+
