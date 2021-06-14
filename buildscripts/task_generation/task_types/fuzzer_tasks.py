@@ -37,7 +37,6 @@ class FuzzerGenTaskParams(ResmokeGenTaskParams):
     timeout_secs: Timeout before test execution is considered hung.
     require_multiversion: Requires downloading Multiversion binaries.
     use_large_distro: Should tests be generated on a large distro.
-    add_to_display_task: Should generated tasks be grouped in a display task.
     """
 
     task_name: str
@@ -50,7 +49,6 @@ class FuzzerGenTaskParams(ResmokeGenTaskParams):
     continue_on_failure: bool
     should_shuffle: bool
     timeout_secs: int
-    add_to_display_task: bool = True
 
     def jstestfuzz_params(self) -> Dict[str, str]:
         """Build a dictionary of parameters to pass to jstestfuzz."""

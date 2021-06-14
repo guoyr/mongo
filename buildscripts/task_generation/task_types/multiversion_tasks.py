@@ -75,7 +75,7 @@ class MultiversionGenTaskService(ResmokeGenTaskService):
                                suite_name: str) -> str:
         """Return resmoke args used to configure a cluster for multiversion testing."""
 
-        shared_resmoke_args = super().generate_resmoke_args(params, suite_file, suite_name)
+        shared_resmoke_args = super()._generate_resmoke_args(params, suite_file, suite_name)
 
         # TODO SERVER-55857: move this to the multiversion fixture definition files.
         if params.is_sharded:

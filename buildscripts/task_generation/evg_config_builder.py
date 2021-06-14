@@ -86,7 +86,7 @@ class EvgConfigBuilder:
             self.evg_config_gen_service.generate_task(generated_suite, build_variant, gen_params)
         self.generated_files.extend(self._generate_suites_config(generated_suite))
 
-    def add_multiversion_suite(self, split_params: SuiteSplitParameters,
+    def generate_multiversion_suite(self, split_params: SuiteSplitParameters,
                                gen_params: MultiversionGenTaskParams) -> None:
         """
         Add a multiversion suite to the builder.
@@ -100,6 +100,10 @@ class EvgConfigBuilder:
             self.evg_config_gen_service.generate_multiversion_task(generated_suite, build_variant,
                                                                    gen_params)
         self.generated_files.extend(self._generate_suites_config(generated_suite))
+
+    def _do_generate_suite(self, split_params: SuiteSplitParameters,
+                           gen_params: MultiversionGenTaskParams) -> None:
+
 
     def add_multiversion_burn_in_test(self, split_params: SuiteSplitParameters,
                                       gen_params: MultiversionGenTaskParams) -> Set[Task]:

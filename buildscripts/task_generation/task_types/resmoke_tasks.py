@@ -38,6 +38,7 @@ class ResmokeGenTaskParams(BaseModel):
     resmoke_args: Arguments to pass to resmoke in generated tasks.
     resmoke_jobs_max: Max number of jobs that resmoke should execute in parallel.
     gen_task_config_remote_path: Remote path of generated config.
+    add_to_display_task: Should generated tasks be grouped in a display task.
     """
 
     use_large_distro: Optional[bool]
@@ -48,6 +49,7 @@ class ResmokeGenTaskParams(BaseModel):
     resmoke_args: str
     resmoke_jobs_max: Optional[int]
     gen_task_config_remote_path: str
+    add_to_display_task: bool = True
 
 
 class ResmokeGenTaskService:
@@ -162,7 +164,7 @@ class ResmokeGenTaskService:
         dependencies = {TaskDependency("archive_dist_test_debug")}
         return dependencies
 
-    def generate_resmoke_args(self, params: ResmokeGenTaskParams, suite_file: str,
+    def _generate_resmoke_args(self, params: ResmokeGenTaskParams, suite_file: str,
                               suite_name: str) -> str:
         """
         Generate the resmoke args for the given suite.

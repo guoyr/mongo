@@ -155,7 +155,8 @@ class MultiVersionGenerateOrchestrator:
         gen_params = evg_expansions.get_multiversion_generation_params(is_sharded)
 
         builder = EvgConfigBuilder()  # pylint: disable=no-value-for-parameter
-        builder.add_multiversion_suite(split_params, gen_params)
+
+        builder.generate_multiversion_suite(split_params, gen_params)
         builder.add_display_task(GEN_PARENT_TASK, {f"{split_params.task_name}"},
                                  evg_expansions.build_variant)
         return builder.build(f"{evg_expansions.task}.json")
