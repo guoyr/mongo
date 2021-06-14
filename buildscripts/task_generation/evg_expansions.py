@@ -78,7 +78,6 @@ class EvgExpansions(BaseModel):
     san_options: Optional[str]
 
     # Task generation expansions.
-    create_misc_suite: bool = True
     is_jstestfuzz: bool = False  # Static split only.
     max_sub_suites: int = DEFAULT_MAX_SUB_SUITES
     max_tests_per_suite: int = DEFAULT_MAX_TESTS_PER_SUITE
@@ -153,7 +152,7 @@ class EvgExpansions(BaseModel):
     def get_generation_options(self) -> GenTaskOptions:
         """Get options for how tasks should be generated."""
         return GenTaskOptions(
-            create_misc_suite=self.create_misc_suite,
+            create_misc_suite=True,
             is_patch=self.is_patch,
             generated_config_dir=DEFAULT_CONFIG_DIRECTORY,
             use_default_timeouts=False,

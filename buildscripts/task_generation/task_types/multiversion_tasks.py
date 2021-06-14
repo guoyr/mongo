@@ -29,8 +29,6 @@ class MultiversionGenTaskParams(ResmokeGenTaskParams):
     parent_task_name: str
     origin_suite: str
     test_list: Optional[str] = None
-    create_misc_suite: bool = True
-    add_to_display_task: bool = True
 
     @property
     def mixed_version_config(self):
@@ -64,7 +62,7 @@ class MultiversionGenTaskService(ResmokeGenTaskService):
                     self._create_sub_task(sub_task_base_name, generated_suite, sub_task_param,
                                           sub_suite))
 
-            if params.create_misc_suite:
+            if self.gen_task_options.create_misc_suite:
                 # Also generate the misc task.
                 sub_tasks.add(
                     self._create_sub_task(sub_task_base_name, generated_suite, sub_task_param,

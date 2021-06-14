@@ -174,7 +174,6 @@ class MultiversionBurnInOrchestrator:
                     use_large_distro=False,
                     large_distro_name=None,
                     name_prefix="burn_in_multiversion",
-                    create_misc_suite=False,
                     add_to_display_task=False,
                     gen_task_config_remote_path=self.burn_in_config.build_config_location(),
                 )

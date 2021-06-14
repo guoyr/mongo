@@ -149,7 +149,7 @@ class ResmokeGenTaskService:
         :return: Dictionary containing variables and value to pass to generated task.
         """
         variables = {
-            "resmoke_args": self.generate_resmoke_args(params, suite_file, suite_name),
+            "resmoke_args": self._generate_resmoke_args(params, suite_file, suite_name),
             "gen_task_config_location": params.gen_task_config_remote_path,
         }
 
