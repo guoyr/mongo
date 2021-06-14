@@ -160,7 +160,7 @@ class TestTask(unittest.TestCase):  # pylint: disable=too-many-public-methods
         task_commands = [{"func": "do multiversion setup"},
                          {
                              "func": "run tests", "vars": {
-                                 "require_multiversion": "true",
+                                 "require_multiversion": True,
                                  "resmoke_args": "--suites=core --shellWriteMode=commands"
                              }
                          }]

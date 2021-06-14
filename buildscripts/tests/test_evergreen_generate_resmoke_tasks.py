@@ -13,6 +13,7 @@ from mock import patch, MagicMock
 from evergreen import EvergreenApi
 
 from buildscripts import evergreen_generate_resmoke_tasks as under_test
+from buildscripts.task_generation import evg_expansions
 from buildscripts.task_generation.gen_config import GenerationConfiguration
 from buildscripts.task_generation.resmoke_proxy import ResmokeProxyConfig
 from buildscripts.task_generation.suite_split import SuiteSplitConfig
@@ -76,17 +77,11 @@ def configure_dependencies(evg_api, evg_expansions, config_dir,
     inject.clear_and_configure(dependencies)
 
 
-def build_mock_evg_expansions(target_resmoke_time=under_test.DEFAULT_TARGET_RESMOKE_TIME):
-    return under_test.EvgExpansions(
-        build_variant="build_variant",
-        max_sub_suites=100,
-        project="mongodb-mongo-master",
-        task_id="task314",
-        task_name="some_task_gen",
-        target_resmoke_time=target_resmoke_time,
-        build_id="build_id",
-        revision="abc123",
-    )
+def build_mock_evg_expansions(target_resmoke_time=evg_expansions.DEFAULT_TARGET_RESMOKE_TIME):
+    return evg_expansions.EvgExpansions(
+        build_variant="build_variant", max_sub_suites=100, project="mongodb-mongo-master",
+        task_id="task314", task_name="some_task_gen", target_resmoke_time=target_resmoke_time,
+        build_id="build_id", revision="abc123", resmoke_args="")
 
 
 class TestAcceptance(unittest.TestCase):

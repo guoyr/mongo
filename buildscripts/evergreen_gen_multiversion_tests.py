@@ -15,24 +15,21 @@ import inject
 import requests
 import click
 import structlog
-from pydantic import BaseModel
 
 from shrub.v2 import ExistingTask
 from evergreen.api import RetryingEvergreenApi, EvergreenApi
 
-from buildscripts.resmokelib.multiversionconstants import (
-    LAST_LTS_MONGO_BINARY, LAST_CONTINUOUS_MONGO_BINARY, REQUIRES_FCV_TAG)
+from buildscripts.resmokelib.multiversionconstants import (LAST_LTS_MONGO_BINARY, REQUIRES_FCV_TAG)
 from buildscripts.task_generation.evg_config_builder import EvgConfigBuilder
+from buildscripts.task_generation.evg_expansions import EvgExpansions, DEFAULT_CONFIG_DIRECTORY
 from buildscripts.task_generation.gen_config import GenerationConfiguration
 from buildscripts.task_generation.generated_config import GeneratedConfiguration
 from buildscripts.task_generation.multiversion_util import MultiversionUtilService
 from buildscripts.task_generation.resmoke_proxy import ResmokeProxyConfig
-from buildscripts.task_generation.suite_split import SuiteSplitConfig, SuiteSplitParameters
+from buildscripts.task_generation.suite_split import SuiteSplitConfig
 from buildscripts.task_generation.suite_split_strategies import SplitStrategy, FallbackStrategy, \
     greedy_division, round_robin_fallback
-from buildscripts.task_generation.task_types.fuzzer_tasks import FuzzerGenTaskParams
 from buildscripts.task_generation.task_types.gentask_options import GenTaskOptions
-from buildscripts.task_generation.task_types.multiversion_tasks import MultiversionGenTaskParams
 from buildscripts.util.cmdutils import enable_logging
 from buildscripts.util.fileops import read_yaml_file
 import buildscripts.evergreen_generate_resmoke_tasks as generate_resmoke
@@ -44,13 +41,9 @@ from buildscripts.util.taskname import remove_gen_suffix
 
 LOGGER = structlog.getLogger(__name__)
 
-DEFAULT_CONFIG_DIR = "generated_resmoke_config"
-CONFIG_DIR = DEFAULT_CONFIG_DIR
 DEFAULT_TEST_SUITE_DIR = os.path.join("buildscripts", "resmokeconfig", "suites")
 LOOKBACK_DURATION_DAYS = 14
 CONFIG_FILE = generate_resmoke.EVG_CONFIG_FILE
-REPL_MIXED_VERSION_CONFIGS = ["new-old-new", "new-new-old", "old-new-new"]
-SHARDED_MIXED_VERSION_CONFIGS = ["new-old-old-new"]
 
 BURN_IN_TASK = "burn_in_tests_multiversion"
 MULTIVERSION_CONFIG_KEY = "use_in_multiversion"
@@ -66,158 +59,6 @@ ASAN_SIGNATURE = "detect_leaks=1"
 ETC_DIR = "etc"
 BACKPORTS_REQUIRED_FILE = "backports_required_for_multiversion_tests.yml"
 BACKPORTS_REQUIRED_BASE_URL = "https://raw.githubusercontent.com/mongodb/mongo"
-
-
-class EvgExpansions(BaseModel):
-    """Evergreen expansions file contents."""
-
-    project: str
-    target_resmoke_time: int = 60
-    max_sub_suites: int = 5
-    max_tests_per_suite: int = 100
-    san_options: Optional[str]
-    task_name: str
-    suite: Optional[str]
-    num_files: Optional[int]
-    num_tasks: Optional[int]
-    resmoke_args: Optional[str]
-    npm_command: Optional[str]
-    jstestfuzz_vars: Optional[str]
-    build_variant: str
-    continue_on_failure: Optional[bool]
-    resmoke_jobs_max: Optional[int]
-    should_shuffle: Optional[bool]
-    timeout_secs: Optional[int]
-    require_multiversion: Optional[bool]
-    use_large_distro: Optional[bool]
-    large_distro_name: Optional[str]
-    revision: str
-    build_id: str
-    create_misc_suite: bool = True
-    is_patch: bool = False
-    is_jstestfuzz: bool = False
-
-    @property
-    def task(self) -> str:
-        """Get the name of the task."""
-        return remove_gen_suffix(self.task_name)
-
-    @classmethod
-    def from_yaml_file(cls, path: str) -> "EvgExpansions":
-        """Read the evergreen expansions from the given file."""
-        return cls(**read_yaml_file(path))
-
-    def config_location(self) -> str:
-        """Get the location to store the configuration."""
-        return f"{self.build_variant}/{self.revision}/generate_tasks/{self.task}_gen-{self.build_id}.tgz"
-
-    def is_asan_build(self) -> bool:
-        """Determine if this task is an ASAN build."""
-        san_options = self.san_options
-        if san_options:
-            return ASAN_SIGNATURE in san_options
-        return False
-
-    def get_generation_options(self) -> GenTaskOptions:
-        """Get options for how tasks should be generated."""
-        return GenTaskOptions(
-            create_misc_suite=self.create_misc_suite,
-            is_patch=self.is_patch,
-            generated_config_dir=DEFAULT_CONFIG_DIR,
-            use_default_timeouts=False,
-        )
-
-    def get_fuzzer_params(self, version_config: str, is_sharded: bool) -> FuzzerGenTaskParams:
-        """
-        Get parameters to generate fuzzer tasks.
-
-        :param version_config: Version configuration to generate for.
-        :param is_sharded: If configuration is for sharded tests.
-        :return: Parameters to generate fuzzer tasks.
-        """
-        name = f"{self.suite}_multiversion_{version_config}"
-        add_resmoke_args = get_multiversion_resmoke_args(is_sharded)
-        resmoke_args = f"{self.resmoke_args or ''} --mixedBinVersions={version_config} {add_resmoke_args}"
-
-        return FuzzerGenTaskParams(
-            num_files=self.num_files,
-            num_tasks=self.num_tasks,
-            resmoke_args=resmoke_args,
-            npm_command=self.npm_command,
-            jstestfuzz_vars=self.jstestfuzz_vars,
-            task_name=name,
-            variant=self.build_variant,
-            continue_on_failure=self.continue_on_failure,
-            resmoke_jobs_max=self.resmoke_jobs_max,
-            should_shuffle=self.should_shuffle,
-            timeout_secs=self.timeout_secs,
-            require_multiversion=self.require_multiversion,
-            suite=self.suite or self.task,
-            use_large_distro=self.use_large_distro,
-            large_distro_name=self.large_distro_name,
-            config_location=self.config_location(),
-        )
-
-    def get_split_params(self) -> SuiteSplitParameters:
-        """Get the parameters specified to split suites."""
-        return SuiteSplitParameters(
-            task_name=self.task_name,
-            suite_name=self.suite or self.task,
-            filename=self.suite or self.task,
-            test_file_filter=None,
-            build_variant=self.build_variant,
-            is_asan=self.is_asan_build(),
-        )
-
-    def get_split_config(self, start_date: datetime, end_date: datetime) -> SuiteSplitConfig:
-        """
-        Get the configuration specifed to split suites.
-
-        :param start_date: Start date for historic results query.
-        :param end_date: End date for historic results query.
-        :return: Configuration to use for splitting suites.
-        """
-        return SuiteSplitConfig(
-            evg_project=self.project,
-            target_resmoke_time=self.target_resmoke_time,
-            max_sub_suites=self.max_sub_suites,
-            max_tests_per_suite=self.max_tests_per_suite,
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-    def get_generation_params(self, is_sharded: bool) -> MultiversionGenTaskParams:
-        """
-        Get the parameters to use to generating multiversion tasks.
-
-        :param is_sharded: True if a sharded sutie is being generated.
-        :return: Parameters to use for generating multiversion tasks.
-        """
-        version_config_list = get_version_configs(is_sharded)
-        return MultiversionGenTaskParams(
-            mixed_version_configs=version_config_list,
-            is_sharded=is_sharded,
-            resmoke_args=self.resmoke_args,
-            parent_task_name=self.task,
-            origin_suite=self.suite or self.task,
-            use_large_distro=self.use_large_distro,
-            large_distro_name=self.large_distro_name,
-            config_location=self.config_location(),
-        )
-
-
-def get_version_configs(is_sharded: bool) -> List[str]:
-    """Get the version configurations to use."""
-    if is_sharded:
-        return SHARDED_MIXED_VERSION_CONFIGS
-    return REPL_MIXED_VERSION_CONFIGS
-
-
-def get_multiversion_resmoke_args(is_sharded: bool) -> str:
-    """Return resmoke args used to configure a cluster for multiversion testing."""
-    if is_sharded:
-        return "--numShards=2 --numReplSetNodes=2 "
-    return "--numReplSetNodes=3 --linearChain=on "
 
 
 def get_backports_required_hash_for_shell_version(mongo_shell_path=None):
@@ -285,13 +126,13 @@ class MultiVersionGenerateOrchestrator:
         """
         suite = evg_expansions.suite
         is_sharded = self.multiversion_util.is_suite_sharded(suite)
-        version_config_list = get_version_configs(is_sharded)
+        gen_params = evg_expansions.get_multiversion_generation_params(is_sharded)
 
         builder = EvgConfigBuilder()  # pylint: disable=no-value-for-parameter
 
         fuzzer_task_set = set()
-        for version_config in version_config_list:
-            fuzzer_params = evg_expansions.get_fuzzer_params(version_config, is_sharded)
+        for version_config in gen_params.mixed_version_configs:
+            fuzzer_params = evg_expansions.fuzzer_gen_task_params(version_config, is_sharded)
             fuzzer_task = builder.generate_fuzzer(fuzzer_params)
             fuzzer_task_set = fuzzer_task_set.union(fuzzer_task.sub_tasks)
 
@@ -311,7 +152,7 @@ class MultiVersionGenerateOrchestrator:
         is_sharded = self.multiversion_util.is_suite_sharded(suite)
 
         split_params = evg_expansions.get_split_params()
-        gen_params = evg_expansions.get_generation_params(is_sharded)
+        gen_params = evg_expansions.get_multiversion_generation_params(is_sharded)
 
         builder = EvgConfigBuilder()  # pylint: disable=no-value-for-parameter
         builder.add_multiversion_suite(split_params, gen_params)
@@ -329,7 +170,7 @@ class MultiVersionGenerateOrchestrator:
             generated_config = self.generate_fuzzer(evg_expansions)
         else:
             generated_config = self.generate_resmoke_suite(evg_expansions)
-        generated_config.write_all_to_dir(DEFAULT_CONFIG_DIR)
+        generated_config.write_all_to_dir(DEFAULT_CONFIG_DIRECTORY)
 
 
 @click.group()
@@ -365,7 +206,7 @@ def run_generate_tasks(expansion_file: str, evergreen_config: Optional[str] = No
     evg_expansions = EvgExpansions.from_yaml_file(expansion_file)
 
     def dependencies(binder: inject.Binder) -> None:
-        binder.bind(SuiteSplitConfig, evg_expansions.get_split_config(start_date, end_date))
+        binder.bind(SuiteSplitConfig, evg_expansions.get_suite_split_config(start_date, end_date))
         binder.bind(SplitStrategy, greedy_division)
         binder.bind(FallbackStrategy, round_robin_fallback)
         binder.bind(GenTaskOptions, evg_expansions.get_generation_options())
@@ -382,8 +223,9 @@ def run_generate_tasks(expansion_file: str, evergreen_config: Optional[str] = No
 
 
 @main.command("generate-exclude-tags")
-@click.option("--output", type=str, default=os.path.join(CONFIG_DIR, EXCLUDE_TAGS_FILE),
-              show_default=True, help="Where to output the generated tags.")
+@click.option("--output", type=str, default=os.path.join(DEFAULT_CONFIG_DIRECTORY,
+                                                         EXCLUDE_TAGS_FILE), show_default=True,
+              help="Where to output the generated tags.")
 def generate_exclude_yaml(output: str) -> None:
     # pylint: disable=too-many-locals
     """
