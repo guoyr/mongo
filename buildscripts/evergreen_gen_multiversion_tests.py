@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import os
 import re
 import tempfile
-from typing import Optional, List
+from typing import Optional
 from collections import defaultdict
 from sys import platform
 
@@ -20,6 +20,7 @@ from shrub.v2 import ExistingTask
 from evergreen.api import RetryingEvergreenApi, EvergreenApi
 
 from buildscripts.resmokelib.multiversionconstants import (LAST_LTS_MONGO_BINARY, REQUIRES_FCV_TAG)
+from buildscripts.resmokelib.setup_multiversion import config as multiversion_config
 from buildscripts.task_generation.evg_config_builder import EvgConfigBuilder
 from buildscripts.task_generation.evg_expansions import EvgExpansions, DEFAULT_CONFIG_DIRECTORY
 from buildscripts.task_generation.gen_config import GenerationConfiguration
@@ -126,12 +127,11 @@ class MultiVersionGenerateOrchestrator:
         """
         suite = evg_expansions.suite
         is_sharded = self.multiversion_util.is_suite_sharded(suite)
-        gen_params = evg_expansions.get_multiversion_generation_params(is_sharded)
 
         builder = EvgConfigBuilder()  # pylint: disable=no-value-for-parameter
 
         fuzzer_task_set = set()
-        for version_config in gen_params.mixed_version_configs:
+        for version_config in multiversion_config.get_version_configs(is_sharded):
             fuzzer_params = evg_expansions.fuzzer_gen_task_params(version_config, is_sharded)
             fuzzer_task = builder.generate_fuzzer(fuzzer_params)
             fuzzer_task_set = fuzzer_task_set.union(fuzzer_task.sub_tasks)

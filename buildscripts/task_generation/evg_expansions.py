@@ -1,8 +1,9 @@
 from datetime import datetime
 
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 
+from buildscripts.resmokelib.setup_multiversion.config import get_version_configs, get_multiversion_resmoke_args
 from buildscripts.task_generation.suite_split import SuiteSplitConfig, SuiteSplitParameters
 from buildscripts.task_generation.task_types.fuzzer_tasks import FuzzerGenTaskParams
 from buildscripts.task_generation.task_types.gentask_options import GenTaskOptions
@@ -17,23 +18,6 @@ DEFAULT_TARGET_RESMOKE_TIME = 60
 DEFAULT_MAX_SUB_SUITES = 5
 
 ASAN_SIGNATURE = "detect_leaks=1"
-
-REPL_MIXED_VERSION_CONFIGS = ["new-old-new", "new-new-old", "old-new-new"]
-SHARDED_MIXED_VERSION_CONFIGS = ["new-old-old-new"]
-
-
-def get_version_configs(is_sharded: bool) -> List[str]:
-    """Get the version configurations to use."""
-    if is_sharded:
-        return SHARDED_MIXED_VERSION_CONFIGS
-    return REPL_MIXED_VERSION_CONFIGS
-
-
-def get_multiversion_resmoke_args(is_sharded: bool) -> str:
-    """Return resmoke args used to configure a cluster for multiversion testing."""
-    if is_sharded:
-        return "--numShards=2 --numReplSetNodes=2 "
-    return "--numReplSetNodes=3 --linearChain=on "
 
 
 class EvgExpansions(BaseModel):

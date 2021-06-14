@@ -3,6 +3,7 @@ from typing import NamedTuple, Set, Optional, Dict
 
 from shrub.v2 import Task, FunctionCall, TaskDependency
 
+from buildscripts.task_generation.task_types.resmoke_tasks import ResmokeGenTaskParams
 from buildscripts.util import taskname
 
 
@@ -18,7 +19,7 @@ class FuzzerTask(NamedTuple):
     sub_tasks: Set[Task]
 
 
-class FuzzerGenTaskParams(NamedTuple):
+class FuzzerGenTaskParams(ResmokeGenTaskParams):
     """
     Parameters to generate a fuzzer task.
 
@@ -44,17 +45,11 @@ class FuzzerGenTaskParams(NamedTuple):
     suite: str
     num_files: int
     num_tasks: int
-    resmoke_args: str
     npm_command: str
     jstestfuzz_vars: Optional[str]
     continue_on_failure: bool
-    resmoke_jobs_max: int
     should_shuffle: bool
     timeout_secs: int
-    require_multiversion: Optional[bool]
-    use_large_distro: Optional[bool]
-    large_distro_name: Optional[str]
-    config_location: str
     add_to_display_task: bool = True
 
     def jstestfuzz_params(self) -> Dict[str, str]:

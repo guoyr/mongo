@@ -1,10 +1,10 @@
 """Task generation for split resmoke tasks."""
 import os
-import re
-from typing import Set, Any, Dict, NamedTuple, Optional, List, Match
+from typing import Set, Any, Dict, Optional, List
 
 import inject
 import structlog
+from pydantic import BaseModel
 from shrub.v2 import Task, TaskDependency
 
 from buildscripts.patch_builds.task_generation import resmoke_commands
@@ -27,7 +27,7 @@ def string_contains_any_of_args(string: str, args: List[str]) -> bool:
     return any(arg in string for arg in args)
 
 
-class ResmokeGenTaskParams(NamedTuple):
+class ResmokeGenTaskParams(BaseModel):
     """
     Parameters describing how a specific resmoke suite should be generated.
 
@@ -39,10 +39,10 @@ class ResmokeGenTaskParams(NamedTuple):
     depends_on: List of tasks this task depends on.
     """
 
-    use_large_distro: bool
+    use_large_distro: Optional[bool]
     large_distro_name: Optional[str]
     require_multiversion: Optional[bool]
-    repeat_suites: int
+    repeat_suites: Optional[int]
     resmoke_args: str
     resmoke_jobs_max: Optional[int]
     config_location: str
@@ -87,8 +87,8 @@ class ResmokeGenTaskService:
         :return: Set of shrub tasks to generate the given suite.
         """
         tasks = {
-            self._create_sub_task(suite, generated_suite, params)
-            for suite in generated_suite.sub_suites
+            self._create_sub_task(sub_suite, generated_suite, params)
+            for sub_suite in generated_suite.sub_suites
         }
 
         if self.gen_task_options.create_misc_suite:

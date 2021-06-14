@@ -1,19 +1,20 @@
 """Task generation for multiversion resmoke tasks."""
-from typing import NamedTuple, Set, List, Optional
+from typing import Set, List, Optional
 
 import inject
 from shrub.v2 import Task, FunctionCall, TaskDependency
 
 from buildscripts.resmokelib.multiversionconstants import REQUIRES_FCV_TAG
-from buildscripts.task_generation.suite_split import GeneratedSuite
+from buildscripts.task_generation.suite_split import GeneratedSuite, SubSuite
 from buildscripts.task_generation.task_types.gentask_options import GenTaskOptions
+from buildscripts.task_generation.task_types.resmoke_tasks import ResmokeGenTaskParams
 
 BACKPORT_REQUIRED_TAG = "backport_required_multiversion"
 EXCLUDE_TAGS = f"{REQUIRES_FCV_TAG},multiversion_incompatible,{BACKPORT_REQUIRED_TAG}"
 EXCLUDE_TAGS_FILE = "multiversion_exclude_tags.yml"
 
 
-class MultiversionGenTaskParams(NamedTuple):
+class MultiversionGenTaskParams(ResmokeGenTaskParams):
     """
     Parameters for how multiversion tests should be generated.
 
@@ -26,12 +27,8 @@ class MultiversionGenTaskParams(NamedTuple):
 
     mixed_version_configs: List[str]
     is_sharded: bool
-    resmoke_args: str
     parent_task_name: str
     origin_suite: str
-    use_large_distro: bool
-    large_distro_name: Optional[str]
-    config_location: str
     name_prefix: Optional[str] = None
     test_list: Optional[str] = None
     create_misc_suite: bool = True
@@ -56,36 +53,49 @@ class MultiversionGenTaskService:
         """
         self.gen_task_options = gen_task_options
 
-    def generate_tasks(self, suite: GeneratedSuite, params: MultiversionGenTaskParams) -> Set[Task]:
+    def generate_tasks(self, generated_suite: GeneratedSuite, params: MultiversionGenTaskParams) -> Set[Task]:
         """
         Generate multiversion tasks for the given suite.
 
-        :param suite: Suite to generate multiversion tasks for.
+        :param generated_suite: Suite to generate multiversion tasks for.
         :param params: Parameters for how tasks should be generated.
         :return: Evergreen configuration to generate the specified tasks.
         """
         sub_tasks = set()
         for version_config in params.mixed_version_configs:
-            for sub_suite in suite.sub_suites:
-                # Generate the newly divided test suites
-                sub_suite_name = sub_suite.name(len(suite))
-                sub_task_name = f"{sub_suite_name}_{version_config}_{suite.build_variant}"
-                if params.name_prefix is not None:
-                    sub_task_name = f"{params.name_prefix}:{sub_task_name}"
-
-                sub_tasks.add(
-                    self._generate_task(sub_task_name, sub_suite_name, version_config, params,
-                                        suite.build_variant))
+            for sub_suite in generated_suite.sub_suites:
+                sub_tasks.add(self._create_sub_task(sub_suite, generated_suite, params, version_config))
 
             if params.create_misc_suite:
                 # Also generate the misc task.
                 misc_suite_name = f"{params.origin_suite}_misc"
-                misc_task_name = f"{misc_suite_name}_{version_config}_{suite.build_variant}"
+                misc_task_name = f"{misc_suite_name}_{version_config}_{generated_suite.build_variant}"
                 sub_tasks.add(
                     self._generate_task(misc_task_name, misc_suite_name, version_config, params,
-                                        suite.build_variant))
+                                        generated_suite.build_variant))
+
 
         return sub_tasks
+
+    def _create_sub_task(self, sub_suite: SubSuite, suite: GeneratedSuite, params: MultiversionGenTaskParams, version_config: str):
+        """
+        Create the sub task for the given suite.
+
+        :param sub_suite: Sub-Suite to generate.
+        :param suite: Parent suite being created.
+        :param params: Parameters describing how tasks should be generated.
+        :param version_config: Multiversion version description string.
+        :return: Shrub configuration for the sub-suite.
+        """
+
+        # Generate the newly divided test suites
+        sub_suite_name = sub_suite.name(len(suite))
+        sub_task_name = f"{sub_suite_name}_{version_config}_{suite.build_variant}"
+        if params.name_prefix is not None:
+            sub_task_name = f"{params.name_prefix}:{sub_task_name}"
+
+        return self._generate_task(sub_task_name, sub_suite_name, version_config, params,
+                                   suite.build_variant)
 
     # pylint: disable=too-many-arguments
     def _generate_task(self, sub_task_name: str, sub_suite_name: str, mixed_version_config: str,

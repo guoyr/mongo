@@ -65,6 +65,8 @@ class EvgConfigBuilder:
 
         :return: The suites files and evergreen configuration for the generated task.
         """
+
+        # TODO: see if multiversion create_misc_suite repalced with the one below.
         test_list = generated_suite.get_test_list()
         return self.resmoke_proxy.render_suite_files(
             generated_suite.sub_suites, generated_suite.suite_name, generated_suite.filename,

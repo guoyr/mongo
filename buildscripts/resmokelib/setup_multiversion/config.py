@@ -3,6 +3,23 @@ from typing import List
 
 SETUP_MULTIVERSION_CONFIG = "buildscripts/resmokeconfig/setup_multiversion/setup_multiversion_config.yml"
 
+REPL_MIXED_VERSION_CONFIGS = ["new-old-new", "new-new-old", "old-new-new"]
+SHARDED_MIXED_VERSION_CONFIGS = ["new-old-old-new"]
+
+
+def get_version_configs(is_sharded: bool) -> List[str]:
+    """Get the version configurations to use."""
+    if is_sharded:
+        return SHARDED_MIXED_VERSION_CONFIGS
+    return REPL_MIXED_VERSION_CONFIGS
+
+
+def get_multiversion_resmoke_args(is_sharded: bool) -> str:
+    """Return resmoke args used to configure a cluster for multiversion testing."""
+    if is_sharded:
+        return "--numShards=2 --numReplSetNodes=2 "
+    return "--numReplSetNodes=3 --linearChain=on "
+
 
 class Buildvariant:
     """Class represents buildvariant in setup multiversion config."""

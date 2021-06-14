@@ -67,7 +67,7 @@ class TestBuildFuzzerSubTask(unittest.TestCase):
         self.assertEqual(len(sub_task.commands), 4)
 
     def test_sub_task_multi_version_tasks_should_be_built_correct(self):
-        mock_params = build_mock_fuzzer_params(multi_version="multiversion value")
+        mock_params = build_mock_fuzzer_params(multi_version=True)
         fuzzer_service = under_test.FuzzerGenTaskService()
 
         sub_task = fuzzer_service.build_fuzzer_sub_task(3, mock_params)
