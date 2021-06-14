@@ -97,7 +97,7 @@ class EvgExpansions(BaseModel):
         """
         return cls(**read_yaml_file(path))
 
-    def config_location(self) -> str:
+    def gen_task_config_remote_path(self) -> str:
         """Get the location to store the configuration."""
         return f"{self.build_variant}/{self.revision}/generate_tasks/{self.task}_gen-{self.build_id}.tgz"
 
@@ -165,9 +165,8 @@ class EvgExpansions(BaseModel):
             use_large_distro=self.use_large_distro, large_distro_name=self.large_distro_name,
             require_multiversion=self.require_multiversion,
             repeat_suites=self.resmoke_repeat_suites, resmoke_args=self.resmoke_args,
-            resmoke_jobs_max=self.resmoke_jobs_max, config_location=
-            f"{self.build_variant}/{self.revision}/generate_tasks/{self.task}_gen-{self.build_id}.tgz"
-        )
+            resmoke_jobs_max=self.resmoke_jobs_max,
+            gen_task_config_remote_path=self.gen_task_config_remote_path())
 
     def get_suite_split_params(self) -> SuiteSplitParameters:
         """Get the parameters to use for splitting suites."""
@@ -189,16 +188,15 @@ class EvgExpansions(BaseModel):
         :return: Parameters to use for generating multiversion tasks.
         """
         version_config_list = get_version_configs(is_sharded)
+
         return MultiversionGenTaskParams(
-            mixed_version_configs=version_config_list,
-            is_sharded=is_sharded,
-            resmoke_args=self.resmoke_args,
-            parent_task_name=self.task,
-            origin_suite=self.suite or self.task,
-            use_large_distro=self.use_large_distro,
+            mixed_version_configs=version_config_list, is_sharded=is_sharded,
+            resmoke_args=self.resmoke_args, parent_task_name=self.task, origin_suite=self.suite
+            or self.task, use_large_distro=self.use_large_distro,
+            require_multiversion=self.require_multiversion,
+            repeat_suites=self.resmoke_repeat_suites, resmoke_jobs_max=self.resmoke_jobs_max,
             large_distro_name=self.large_distro_name,
-            config_location=self.config_location(),
-        )
+            gen_task_config_remote_path=self.gen_task_config_remote_path())
 
     def get_evg_config_gen_options(self, generated_config_dir: str) -> GenTaskOptions:
         """
@@ -232,6 +230,4 @@ class EvgExpansions(BaseModel):
             should_shuffle=self.should_shuffle, timeout_secs=self.timeout_secs,
             require_multiversion=self.require_multiversion, suite=self.suite,
             use_large_distro=self.use_large_distro, large_distro_name=self.large_distro_name,
-            config_location=
-            f"{self.build_variant}/{self.revision}/generate_tasks/{self.task}_gen-{self.build_id}.tgz"
-        )
+            gen_task_config_remote_path=self.gen_task_config_remote_path())

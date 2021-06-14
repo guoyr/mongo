@@ -30,7 +30,7 @@ def build_mock_fuzzer_params(multi_version=None, use_large_distro=None, add_to_d
         use_large_distro=use_large_distro,
         add_to_display_task=add_to_display,
         large_distro_name=large_distro_name,
-        config_location="config location",
+        gen_task_config_remote_path="config location",
     )
 
 

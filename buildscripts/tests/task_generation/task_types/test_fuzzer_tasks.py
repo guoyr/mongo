@@ -25,7 +25,7 @@ def build_mock_fuzzer_params(multi_version=None, jstestfuzz_vars="vars for jstes
         use_large_distro=None,
         add_to_display_task=True,
         large_distro_name="large distro",
-        config_location="config_location",
+        gen_task_config_remote_path="config_location",
     )
 
 

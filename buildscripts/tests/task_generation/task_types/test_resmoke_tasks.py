@@ -39,7 +39,7 @@ def build_mock_gen_params(repeat_suites=1, resmoke_args="resmoke args"):
         resmoke_args=resmoke_args,
         resmoke_jobs_max=None,
         large_distro_name=None,
-        config_location="generated_config",
+        gen_task_config_remote_path="generated_config",
     )
 
 

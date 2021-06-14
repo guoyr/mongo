@@ -84,8 +84,10 @@ def create_multiversion_tests_by_task_mock(n_tasks, n_tests):
 
 _DATE = datetime(2018, 7, 15)
 BURN_IN_TESTS = "buildscripts.burn_in_tests"
-NUM_REPL_MIXED_VERSION_CONFIGS = len(buildscripts.resmokelib.setup_multiversion.config.REPL_MIXED_VERSION_CONFIGS)
-NUM_SHARDED_MIXED_VERSION_CONFIGS = len(buildscripts.resmokelib.setup_multiversion.config.SHARDED_MIXED_VERSION_CONFIGS)
+NUM_REPL_MIXED_VERSION_CONFIGS = len(
+    buildscripts.resmokelib.setup_multiversion.config.REPL_MIXED_VERSION_CONFIGS)
+NUM_SHARDED_MIXED_VERSION_CONFIGS = len(
+    buildscripts.resmokelib.setup_multiversion.config.SHARDED_MIXED_VERSION_CONFIGS)
 
 NS = "buildscripts.burn_in_tests_multiversion"
 

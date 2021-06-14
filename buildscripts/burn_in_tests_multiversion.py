@@ -176,7 +176,7 @@ class MultiversionBurnInOrchestrator:
                     name_prefix="burn_in_multiversion",
                     create_misc_suite=False,
                     add_to_display_task=False,
-                    config_location=self.burn_in_config.build_config_location(),
+                    gen_task_config_remote_path=self.burn_in_config.build_config_location(),
                 )
 
                 tasks = tasks.union(builder.add_multiversion_burn_in_test(split_params, gen_params))

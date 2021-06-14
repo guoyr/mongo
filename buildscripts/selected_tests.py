@@ -423,7 +423,7 @@ class SelectedTestsOrchestrator:
                 repeat_suites=task_config.get("repeat_suites", 1),
                 resmoke_args=task_config["resmoke_args"],
                 resmoke_jobs_max=task_config.get("resmoke_jobs_max"),
-                config_location=self.evg_expansions.get_config_location(),
+                gen_task_config_remote_path=self.evg_expansions.get_config_location(),
             )
             builder.generate_suite(split_params, gen_params)
 

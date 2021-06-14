@@ -94,7 +94,7 @@ class FuzzerGenTaskService:
             "require_multiversion": params.require_multiversion,
             "timeout_secs": params.timeout_secs,
             "task": params.task_name,
-            "gen_task_config_location": params.config_location,
+            "gen_task_config_location": params.gen_task_config_remote_path,
         }  # yapf: disable
 
         commands = [
