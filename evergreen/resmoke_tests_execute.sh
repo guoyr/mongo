@@ -15,6 +15,28 @@ if [[ ${disable_unit_tests} = "false" && ! -f ${skip_tests} ]]; then
   # activate the virtualenv if it has been set up
   activate_venv
 
+  if [[ -f "patch_test_tags.tgz" ]]; then
+    tags_build_variant="${build_variant}"
+
+    # TODO SERVER-56382: create a more robust mapping between query builders and existing required builders.
+    if [[ "${build_variant}" =~ *"-query-patch-only" ]]; then
+      # Use the RHEL 8 all feature flags variant for the classic engine variant. The original
+      # classic engine variant is not a required builder and therefore not captured in patch
+      # test failure history.
+      tags_build_variant="enterprise-rhel-80-64-bit-dynamic-all-feature-flags-required"
+      "enterprise-rhel-80-64-bit-dynamic-all-feature-flags-required"
+    fi
+
+    display_task_name=$(python getdisplaytaskname.py "${task_name}" "${tags_build_variant}")
+    echo "calculated display task name: " "$display_task_name"
+
+    tar -xzf patch_test_tags.tgz
+
+    if [[ -f "failedtesttags/${tags_build_variant}/${display_task_name}.yml" ]]; then
+      extra_args="$extra_args --tagFile=failedtesttags/${tags_build_variant}/${display_task_name}.yml --includeWithAllTags=recent_failure"
+    fi
+  fi
+
   # on *SAN builds, extract the debug symbols so they're available
   # to the symbolizer
   if [[ -n "${san_options}" ]]; then
