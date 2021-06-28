@@ -113,7 +113,7 @@ def _make_suite_roots(files):
 
 def _get_suite_config(pathname):
     """Attempt to read YAML configuration from 'pathname' for the suite."""
-    return SuiteFinder.get_config_obj("suite", pathname)
+    return SuiteFinder.get_config_obj(pathname)
 
 
 class SuiteConfigInterface(object):
@@ -143,7 +143,31 @@ class MatrixSuiteConfig(SuiteConfigInterface):
     """Class for storing the resmoke.py suite YAML configuration"""
     @staticmethod
     def get_config_obj(pathname):
-        pass
+        suites_dir = os.path.join(_config.CONFIG_DIR, "matrix_suites")
+        mappings_dir = os.path.join(suites_dir, "mappings")
+        overrides_dir = os.path.join(suites_dir, "overrides")
+
+        def get_all_suites(target_dir):
+            all_suites = {}
+            root = os.path.abspath(target_dir)
+            files = os.listdir(root)
+
+            for filename in files:
+                (short_name, ext) = os.path.splitext(filename)
+                if ext in (".yml", ".yaml"):
+                    pathname = os.path.join(root, filename)
+
+                    if not utils.is_yaml_file(pathname) or not os.path.isfile(pathname):
+                        raise optparse.OptionValueError(
+                            "Expected a suite YAML config, but got '%s'" % pathname)
+                    suites = utils.load_yaml_file(pathname)
+                    for suite_config in suites:
+                        all_suites[suite_config["suite_name"]] = suite_config
+
+            return all_suites
+
+        all_matrix_suites = get_all_suites(mappings_dir)
+        return {}
 
 
 class SuiteFinder(object):
@@ -172,6 +196,7 @@ class SuiteFinder(object):
             (short_name, ext) = os.path.splitext(filename)
             if ext in (".yml", ".yaml"):
                 pathname = os.path.join(root, filename)
+                # TODO: store named suite in an object
                 named_suites[short_name] = pathname
 
         return named_suites

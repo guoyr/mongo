@@ -246,7 +246,7 @@ class MultiversionOptions(object):
     """Represent the multiversion version choices."""
 
     LAST_LTS = "last_lts"
-    LAST_CONTINOUS = "last_continous"
+    LAST_CONTINOUS = "last_continuous"
 
     @classmethod
     def all_options(cls):

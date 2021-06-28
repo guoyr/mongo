@@ -18,7 +18,7 @@ FIXTURE_DIR = "buildscripts/resmokelib/testing/fixtures"
 RETRIEVE_DIR = "build/multiversionfixtures"
 RETRIEVE_LOCK = threading.Lock()
 
-USE_LEGACY_MULTIVERSION = True
+USE_LEGACY_MULTIVERSION = False
 
 _BUILDERS = {}  # type: ignore
 
