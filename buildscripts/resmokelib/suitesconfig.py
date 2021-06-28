@@ -76,8 +76,8 @@ def get_suites(suite_files, test_files):
 
     Args:
         suite_files: A list of file paths pointing to suite YAML configuration files. For the suites
-            defined in 'buildscripts/resmokeconfig/suites/', a shorthand name consisting of the
-            filename without the extension can be used.
+            defined in 'buildscripts/resmokeconfig/suites/' and matrix suites, a shorthand name consisting
+            of the filename without the extension can be used.
         test_files: A list of file paths pointing to test files overriding the roots for the suites.
     """
     suite_roots = None
@@ -113,19 +113,65 @@ def _make_suite_roots(files):
 
 def _get_suite_config(pathname):
     """Attempt to read YAML configuration from 'pathname' for the suite."""
-    return _get_yaml_config("suite", pathname)
+    return SuiteFinder.get_config_obj("suite", pathname)
 
 
-def _get_yaml_config(kind, pathname):
-    # Named executors or suites are specified as the basename of the file, without the .yml
-    # extension.
-    if not utils.is_yaml_file(pathname) and not os.path.dirname(pathname):
-        if pathname not in _config.NAMED_SUITES:  # pylint: disable=unsupported-membership-test
-            raise errors.SuiteNotFound("Unknown %s '%s'" % (kind, pathname))
-        # Expand 'pathname' to full path.
-        pathname = _config.NAMED_SUITES[pathname]  # pylint: disable=unsubscriptable-object
+class SuiteConfigInterface(object):
+    def __init__(self, yaml_path=None):
+        self.yaml_path = yaml_path
 
-    if not utils.is_yaml_file(pathname) or not os.path.isfile(pathname):
-        raise optparse.OptionValueError(
-            "Expected a %s YAML config, but got '%s'" % (kind, pathname))
-    return utils.load_yaml_file(pathname)
+
+class ExplicitSuiteConfig(SuiteConfigInterface):
+    """Class for storing the resmoke.py suite YAML configuration"""
+    @staticmethod
+    def get_config_obj(pathname):
+        # Named executors or suites are specified as the basename of the file, without the .yml
+        # extension.
+        if not utils.is_yaml_file(pathname) and not os.path.dirname(pathname):
+            if pathname not in _config.NAMED_SUITES:  # pylint: disable=unsupported-membership-test
+                # Expand 'pathname' to full path.
+                return None
+            pathname = _config.NAMED_SUITES[pathname]  # pylint: disable=unsubscriptable-object
+
+        if not utils.is_yaml_file(pathname) or not os.path.isfile(pathname):
+            raise optparse.OptionValueError(
+                "Expected a suite YAML config, but got '%s'" % pathname)
+        return utils.load_yaml_file(pathname)
+
+
+class MatrixSuiteConfig(SuiteConfigInterface):
+    """Class for storing the resmoke.py suite YAML configuration"""
+    @staticmethod
+    def get_config_obj(pathname):
+        pass
+
+
+class SuiteFinder(object):
+    @staticmethod
+    def get_config_obj(pathname):
+        explicit_suite = ExplicitSuiteConfig.get_config_obj(pathname)
+        matrix_suite = MatrixSuiteConfig.get_config_obj(pathname)
+
+        if not (explicit_suite or matrix_suite):
+            raise errors.SuiteNotFound("Unknown suite 's'" % pathname)
+
+        if explicit_suite and matrix_suite:
+            raise errors.DuplicateSuiteDefinition("Multiple definitions for suite '%s'" % pathname)
+
+        return matrix_suite or explicit_suite
+
+    @staticmethod
+    def get_named_suites(config_dir):
+        """ Populate the named suites by scanning config_dir/suites. """
+        named_suites = {}
+
+        suites_dir = os.path.join(config_dir, "suites")
+        root = os.path.abspath(suites_dir)
+        files = os.listdir(root)
+        for filename in files:
+            (short_name, ext) = os.path.splitext(filename)
+            if ext in (".yml", ".yaml"):
+                pathname = os.path.join(root, filename)
+                named_suites[short_name] = pathname
+
+        return named_suites
