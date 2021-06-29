@@ -147,7 +147,7 @@ class MatrixSuiteConfig(SuiteConfigInterface):
         mappings_dir = os.path.join(suites_dir, "mappings")
         overrides_dir = os.path.join(suites_dir, "overrides")
 
-        def get_all_suites(target_dir):
+        def get_all_yamls(target_dir):
             all_suites = {}
             root = os.path.abspath(target_dir)
             files = os.listdir(root)
@@ -160,14 +160,26 @@ class MatrixSuiteConfig(SuiteConfigInterface):
                     if not utils.is_yaml_file(pathname) or not os.path.isfile(pathname):
                         raise optparse.OptionValueError(
                             "Expected a suite YAML config, but got '%s'" % pathname)
-                    suites = utils.load_yaml_file(pathname)
-                    for suite_config in suites:
-                        all_suites[suite_config["suite_name"]] = suite_config
-
+                    all_suites[short_name] = load_yaml_file(pathname)
             return all_suites
 
-        all_matrix_suites = get_all_suites(mappings_dir)
+        all_matrix_suite_files = get_all_yamls(mappings_dir)
+
+        all_matrix_suites = {}
+        all_overrides = {}
+
+        for file_name, suite_config in all_matrix_suite_files:
+            all_matrix_suites[suite_config["suite_name"]] = suite_config
+
+        all_override_files = get_all_yamls(overrides_dir)
+
+        for filename, override_config_file in all_override_files:
+            for override_config in override_config_file:
+                all_overrides[f"{}.{}".format(filename, override_config["name"] = override_config
+
         return {}
+
+    def validate_override_file(self, ):
 
 
 class SuiteFinder(object):
