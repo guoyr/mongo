@@ -109,6 +109,7 @@ class _FixtureConfig(object):  # pylint: disable=too-many-instance-attributes
         self.ALWAYS_USE_LOG_FILES = config.ALWAYS_USE_LOG_FILES
         self.LAST_LTS_MONGOD_BINARY = LAST_LTS_MONGOD_BINARY
         self.LAST_LTS_MONGOS_BINARY = LAST_LTS_MONGOS_BINARY
+        self.USE_LEGACY_MULTIVERSION = config.USE_LEGACY_MULTIVERSION
         self.EVERGREEN_TASK_ID = config.EVERGREEN_TASK_ID
         self.FLOW_CONTROL = config.FLOW_CONTROL
         self.FLOW_CONTROL_TICKETS = config.FLOW_CONTROL_TICKETS

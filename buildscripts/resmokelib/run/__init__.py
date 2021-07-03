@@ -763,9 +763,9 @@ class RunPlugin(PluginInterface):
             " with two shards and two replica set nodes each, specify 'old-new-old-new'.")
 
         parser.add_argument(
-            "--multiversionBinVersion", type=str, dest="multiversion_bin_version",
+            "--oldBinVersion", type=str, dest="old_bin_version",
             choices=config.MultiversionOptions.all_options(),
-            help="Chose the multiverion binary version as last-lts or last-continous.")
+            help="Chose the multiverion binary version as last-lts or last-continuous.")
 
         parser.add_argument(
             "--linearChain", action="store", dest="linear_chain", choices=("on", "off"),
