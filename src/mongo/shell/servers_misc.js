@@ -165,6 +165,8 @@ function startParallelShell(jsCode, port, noConnect, ...optionArgs) {
     args.push("--eval", jsCode);
 
     var pid = startMongoProgramNoConnect.apply(null, args);
+    // Store `pid` in a global dict. Windows might reuse pids so keep a count of each pid.
+
 
     // Returns a function that when called waits for the parallel shell to exit and returns the exit
     // code of the process. By default an error is thrown if the parallel shell exits with a nonzero
@@ -179,11 +181,17 @@ function startParallelShell(jsCode, port, noConnect, ...optionArgs) {
             }
         }
         var exitCode = waitProgram(pid);
+        // Remove `pid` from global dict.
         if (arguments.length === 0 || options.checkExitSuccess) {
             assert.eq(0, exitCode, "encountered an error in the parallel shell");
         }
         return exitCode;
     };
+}
+
+function uncheckedParallelShellPidsString() {
+    // return a string of parallel shell pids still in global dict. Going with a string here so it's easier to use in C++.
+    // Array is better but may need to be converted from BSONObj for certain operations.
 }
 
 var testingReplication = false;

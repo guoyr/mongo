@@ -922,6 +922,9 @@ int mongo_main(int argc, char* argv[]) {
             }
         }
 
+        // call uncheckedParallelShellPidsString. Error if not empty and print list of pids that were not
+        // waited on.
+
         if (shellGlobalParams.files.size() == 0 && shellGlobalParams.script.empty())
             shellGlobalParams.runShell = true;
 
